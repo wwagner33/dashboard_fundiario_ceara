@@ -1,0 +1,15 @@
+streamlit
+pandas
+folium
+streamlit-folium
+plotly
+geopandas
+shapely
+pytest
+
+# @title
+# Instalação dos pacotes necessários (se já não estiverem instalados)
+leafmap 
+ipyleaflet 
+geemap 
+mapclassify
