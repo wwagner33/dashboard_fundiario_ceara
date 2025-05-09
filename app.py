@@ -2,6 +2,7 @@
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 from streamlit_folium import st_folium
 
 from modules import (
@@ -74,6 +75,8 @@ page = st.sidebar.selectbox(
     "Navegação", ["Gráficos", "Mapa Contextual", "Mapa Interativo"]
 )
 
+
+st.logo("./assets/CC_Terra.png", size="large")
 # ---------------------------------------------------
 # 7) Lógica de cada aba
 # ---------------------------------------------------
@@ -102,14 +105,18 @@ if page == "Gráficos":
         df_tab.loc[len(df_tab)] = ["Total", total]
         st.table(df_tab)
 
+        col1, col2 = st.columns([3, 1])
+        data = np.random.randn(10, 1)
+
         if tipo_grafico == "Barras":
             fig = plot_barras(resultados, f"Propriedades - {opcao}", f"Total: {total}")
+            col1.pyplot(fig)
         else:
             fig = plot_pizza(resultados, f"Propriedades - {opcao}", f"Total: {total}")
-        st.pyplot(fig)
+            col1.pyplot(fig)
 
-        st.subheader("Estatísticas Adicionais")
-        st.table(compute_stats_df(df_class))
+        col2.subheader("Estatísticas Adicionais")
+        col2.table(compute_stats_df(df_class))
     else:
         st.warning("Nenhum dado disponível para o filtro selecionado.")
 
