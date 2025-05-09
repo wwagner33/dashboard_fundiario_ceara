@@ -1,15 +1,8 @@
 streamlit
-pandas
-folium
 streamlit-folium
-plotly
+pandas
+numpy
 geopandas
+folium
+matplotlib
 shapely
-pytest
-
-# @title
-# Instalação dos pacotes necessários (se já não estiverem instalados)
-leafmap 
-ipyleaflet 
-geemap 
-mapclassify
