@@ -1,19 +1,45 @@
-# @title
+import geopandas as gpd
+import pandas as pd
 import unicodedata
 import json
-import geopandas as gpd         # Manipulação de dados geográficos
-import pandas as pd            # Manipulação de DataFrames
-import numpy as np             # Manipulação de arrays e matrizes
-import folium                 # Criação de mapas interativos
-import json                   # Leitura de arquivos JSON
-from shapely import wkt       # Conversão de strings WKT para objetos geométricos
-from folium.plugins import MarkerCluster  # Plugin para agrupar marcadores próximos
+import geopandas as gpd
+import pandas as pd
+import folium
+import numpy as np
+from shapely import wkt
+import ipywidgets as widgets
+from google.colab import output
+from IPython.display import display, clear_output
 
-from google.colab import drive
 import os
 
-# Monta o Google Drive no local padrão
-drive.mount('/content/drive')
+
+
+def get_latest_dataset():
+    # Caminho da pasta onde estão os datasets
+    pasta_datasets = 'data/'
+
+    # Padrão de nome dos arquivos
+    prefixo = 'dataset-malha-fundiaria-idace_preprocessado-'
+    sufixo = '.csv'
+
+    # Listar todos os arquivos na pasta
+    arquivos = os.listdir(pasta_datasets)
+
+    # Filtrar só os arquivos que seguem o padrão
+    arquivos_dataset = [f for f in arquivos if f.startswith(prefixo) and f.endswith(sufixo)]
+
+    if not arquivos_dataset:
+        raise FileNotFoundError("Nenhum arquivo de dataset encontrado no diretório especificado.")
+    # Ordenar os arquivos com base no timestamp no nome (mais novo por último)
+    arquivos_dataset.sort()
+
+    # Pegar o mais novo
+    arquivo_mais_recente = arquivos_dataset[-1]
+
+    # Retornar o caminho completo para o arquivo
+    return os.path.join(pasta_datasets, arquivo_mais_recente)
+
 
 def normalizar_nome(nome):
     """
@@ -30,8 +56,11 @@ def carregar_dados():
     Normaliza os nomes dos municípios e faz o merge dos datasets.
     Retorna (data, municipios_ce).
     """
+    # Carga do dataset mais atual
+    caminho_dataset = get_latest_dataset()
+
     try:
-        municipios_ce = gpd.read_file('/content/drive/My Drive/Projetos/2024-governanca-fundiaria/[DATA-TO-ANALYSIS]/data_to_colab/geojson-municipios_ceara-normalizado.geojson')
+        municipios_ce = gpd.read_file('data/geojson-municipios_ceara-normalizado.geojson')
         print("GeoJSON dos municípios carregado com sucesso.")
     except Exception as e:
         print(f"Erro ao carregar o GeoJSON dos municípios: {e}")
@@ -43,7 +72,7 @@ def carregar_dados():
         print("Propriedades extraídas e unidas ao DataFrame dos municípios.")
 
     try:
-        data = pd.read_csv('/content/drive/My Drive/Projetos/2024-governanca-fundiaria/[DATA-TO-ANALYSIS]/data_to_colab/dataset-malha-fundiaria-idace_preprocessado-2025-04-26.csv', low_memory=False)
+        data = pd.read_csv(caminho_dataset, low_memory=False)
         print("Dataset das propriedades carregado com sucesso.")
     except Exception as e:
         print(f"Erro ao carregar o dataset das propriedades: {e}")
@@ -75,282 +104,165 @@ except Exception as e:
     print(f"Erro ao carregar os dados. \n\n Descrição do erro: \n{e}")
     data = None
 
-
-
-# Ativa o gerenciador de widgets customizados (para melhorar a exibição no Colab)
+# ————————————————————————————————————————————————————————————————————
+# Configuração do ambiente
+# Ativa widgets no Colab
 output.enable_custom_widget_manager()
 
-def simplificar_geometria(geometry, tolerance=0.01):
+# ————————————————————————————————————————————————————————————————————
+# Configuração de cores por categoria
+CORES = {
+    "Minifúndio": "#9b19f5",
+    "Pequena Propriedade": "#0040bf",
+    "Média Propriedade": "#e6d800",
+    "Grande Propriedade": "#d97f00",
+    "Sem Classificação": "#808080"
+}
+
+# # ————————————————————————————————————————————————————————————————————
+def carregar_dados_por_regiao(data: pd.DataFrame, regiao: str) -> gpd.GeoDataFrame:
+    """Filtra e prepara os dados para a região especificada."""
+    df = data[
+        (data['regiao_administrativa'] == regiao) &
+        data['geom'].notna() &
+        data['geom'].apply(lambda x: isinstance(x, str))
+    ].copy()
+    if df.empty:
+        raise ValueError(f"Nenhum dado válido encontrado para: {regiao}")
+    return df
+# ————————————————————————————————————————————————————————————————————
+def preprocessar_tudo(df_raw: pd.DataFrame) -> gpd.GeoDataFrame:
     """
-    Simplifica uma geometria usando o algoritmo de Douglas-Peucker.
-
-    Parâmetros:
-        geometry: objeto geométrico a ser simplificado.
-        tolerance (float): tolerância para a simplificação. Quanto maior, mais simples fica.
-
-    Retorna:
-        Geometria simplificada, preservando a topologia.
+    1) Filtra os dados válidos
+    2) Converte WKT para Shapely
+    3) Converte para GeoDataFrame
+    4) Classifica todas as propriedades
+    5) Retorna um GeoDataFrame COMPLETO pronto pra filtrar por região.
     """
-    return geometry.simplify(tolerance, preserve_topology=True)
-
-def preparar_dados(data: pd.DataFrame) -> tuple[gpd.GeoDataFrame, pd.DataFrame]:
-    """
-    Realiza a limpeza e preparação dos dados geográficos com relatório completo de descartes.
-
-    Parâmetros:
-        data: DataFrame com dados originais
-
-    Retorna:
-        tuple: (GeoDataFrame preparado, DataFrame com registros descartados e motivos)
-    """
-    required_columns = ['geom', 'area', 'modulo_fiscal']
-    total_inicial = len(data)
-
-    # Verifica colunas obrigatórias
-    if not all(column in data.columns for column in required_columns):
-        raise ValueError(f"O DataFrame deve conter as colunas: {required_columns}")
-
-    # Cria cópia para rastrear descartes
-    data_com_motivos = data.copy()
-    data_com_motivos['motivo_descarte'] = None
-
-    # Identifica problemas
-    # 1. Verifica valores nulos
-    nulos_area = data['area'].isna()
-    nulos_modulo = data['modulo_fiscal'].isna()
-    nulos_geom = data['geom'].isna()
-
-    data_com_motivos.loc[nulos_area, 'motivo_descarte'] = 'Área nula'
-    data_com_motivos.loc[nulos_modulo, 'motivo_descarte'] = 'Módulo fiscal nulo'
-    data_com_motivos.loc[nulos_geom, 'motivo_descarte'] = 'Geometria nula'
-
-    # 2. Verifica zeros (após remover nulos)
-    dados_sem_nulos = data.dropna(subset=required_columns)
-    mask_area_zero = (dados_sem_nulos['area'] == 0)
-    mask_modulo_zero = (dados_sem_nulos['modulo_fiscal'] == 0)
-
-    idx_area_zero = dados_sem_nulos[mask_area_zero].index
-    idx_modulo_zero = dados_sem_nulos[mask_modulo_zero].index
-    idx_ambos_zero = dados_sem_nulos[mask_area_zero & mask_modulo_zero].index
-
-    data_com_motivos.loc[idx_area_zero, 'motivo_descarte'] = 'Área igual a zero'
-    data_com_motivos.loc[idx_modulo_zero, 'motivo_descarte'] = 'Módulo fiscal igual a zero'
-    data_com_motivos.loc[idx_ambos_zero, 'motivo_descarte'] = 'Área e módulo fiscal iguais a zero'
-
-    # 3. Verifica tipo de geometria
-    dados_validos = dados_sem_nulos[(dados_sem_nulos['area'] > 0) &
-                                  (dados_sem_nulos['modulo_fiscal'] > 0)].copy()
-
-    mask_geometria_invalida = ~dados_validos['geom'].str.startswith('MULTIPOLYGON', na=False)
-    idx_geometria_invalida = dados_validos[mask_geometria_invalida].index
-    data_com_motivos.loc[idx_geometria_invalida, 'motivo_descarte'] = 'Geometria não MULTIPOLYGON'
-
-    # Separa dados descartados
-    descartes = data_com_motivos[data_com_motivos['motivo_descarte'].notnull()].copy()
-
-    # Processa dados válidos
-    dados_validos = dados_validos[~mask_geometria_invalida]
-    try:
-        dados_validos['geometry'] = dados_validos['geom'].apply(wkt.loads)
-        dados_validos['geometry'] = dados_validos['geometry'].apply(simplificar_geometria)
-    except Exception as e:
-        raise ValueError(f"Erro ao converter geometrias: {e}")
-
-    gdf = gpd.GeoDataFrame(dados_validos, geometry='geometry', crs='EPSG:31984').to_crs(epsg=4326)
-    total_valido = len(gdf)
-
-    # Gera relatório detalhado
-    if not descartes.empty:
-        print("\nRELATÓRIO COMPLETO DE PROCESSAMENTO")
-        print("==================================")
-        print(f"Total de registros recebidos: {total_inicial}")
-        print(f"Total de registros válidos após processamento: {total_valido}")
-        print(f"Total de registros descartados: {len(descartes)}")
-        print("\nDetalhamento dos descartes:")
-
-        contagem = descartes['motivo_descarte'].value_counts()
-        print("\n".join([f"  - {motivo}: {quantidade} registros"
-                       for motivo, quantidade in contagem.items()]))
-
-        print(f"\nTaxa de aproveitamento: {total_valido/total_inicial:.1%}")
-
-        # Opcional: salva descartes em arquivo para análise
+    # # só pega linhas com geometria WKT válida
+    df = df_raw[df_raw['geom'].notna() & df_raw['geom'].apply(lambda x: isinstance(x, str))].copy()
+    
+    # converte string WKT em shapely
+    def to_geom(w):
         try:
-            descartes.to_csv('registros_descartados.csv', index=False)
-            print("\nDetalhes completos dos registros descartados salvos em 'registros_descartados.csv'")
-        except Exception as e:
-            print(f"\nNão foi possível salvar arquivo de descartes: {e}")
-
-    return gdf, descartes
-
-def classificar_propriedades(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Classifica as propriedades em categorias com base na área e módulo fiscal.
-
-    Parâmetros:
-        df: GeoDataFrame já preparado (sem valores nulos/zeros)
-
-    Retorna:
-        GeoDataFrame com coluna 'categoria' adicionada
-    """
+            return wkt.loads(w)
+        except:
+            return None
+    
+    df['geometry'] = df['geom'].map(to_geom)
+    df = df[df['geometry'].notna()]
+    
+    # monta GeoDataFrame e projeta
+    gdf = gpd.GeoDataFrame(df, geometry='geometry', crs='EPSG:31984')
+    gdf = gdf.to_crs(epsg=4326)
+    
     # Classificação
-    conditions = [
-        (df['area'] < 1 * df['modulo_fiscal']),
-        (df['area'] >= 1 * df['modulo_fiscal']) & (df['area'] <= 4 * df['modulo_fiscal']),
-        (df['area'] > 4 * df['modulo_fiscal']) & (df['area'] <= 15 * df['modulo_fiscal']),
-        (df['area'] > 15 * df['modulo_fiscal'])
+    conds = [
+        (gdf['area'] > 0) & (gdf['area'] < gdf['modulo_fiscal']),
+        (gdf['area'] >= gdf['modulo_fiscal']) & (gdf['area'] <= 4 * gdf['modulo_fiscal']),
+        (gdf['area'] > 4 * gdf['modulo_fiscal']) & (gdf['area'] <= 15 * gdf['modulo_fiscal']),
+        (gdf['area'] > 15 * gdf['modulo_fiscal'])
     ]
-    categories = ['Minifundio', 'Pequena Propriedade', 'Média Propriedade', 'Grande Propriedade']
-
-    df['categoria'] = np.select(conditions, categories, default=None)
-
-    # Estatísticas de classificação
-    categoria_counts = df['categoria'].value_counts()
-    categoria_str = "\n".join([f"      - {cat}: {count}" for cat, count in categoria_counts.items()])
-
-    print(f"""DISTRIBUIÇÃO POR CATEGORIA:\n{categoria_str}""")
-
-    return df.dropna(subset=['categoria'])
+    cats = list(CORES.keys())[:-1]
+    gdf['categoria'] = np.select(conds, cats, default="Sem Classificação")
+    
+    return gdf
 
 
-def criar_mapa(gdf: gpd.GeoDataFrame, municipios_ce: gpd.GeoDataFrame) -> folium.Map:
-    """
-    Cria um mapa interativo com:
-    - Camada de municípios (bordas dos polígonos)
-    - Camadas de propriedades classificadas por tamanho
-    - Controles de camadas para alternar entre as visualizações
-    """
-    # Inicializa o mapa
-    mapa = folium.Map(location=[-5.2, -39.3], zoom_start=8)
+def criar_mapa_com_camadas(gdf: gpd.GeoDataFrame, regiao: str) -> folium.Map:
+    # 1. Centrar o mapa como antes...
+    gdf_proj = gdf.to_crs(epsg=31983)
+    centro_proj = gdf_proj.geometry.centroid.union_all().centroid
+    centro_wgs84 = (
+        gpd.GeoSeries([centro_proj], crs='EPSG:31983')
+           .to_crs(epsg=4326)[0]
+    )
+    m = folium.Map(location=[centro_wgs84.y, centro_wgs84.x],
+                   zoom_start=10, width="95%", height="800px")
 
-    # Adiciona camada de municípios (apenas bordas)
-    folium.GeoJson(
-        data=municipios_ce.to_json(),
-        style_function=lambda feature: {
-            'fillColor': 'transparent',
-            'color': '#000000',
-            'weight': 1,
-            'fillOpacity': 0
-        },
-        name='Municípios (contornos)',
-        tooltip=folium.GeoJsonTooltip(
-            fields=['nome_municipio'],
-            aliases=['Município:'],
-            localize=True
-        )
-    ).add_to(mapa)
+    # 2. Cria um FeatureGroup pra cada categoria
+    grupos = {}
+    for cat in CORES.keys():
+        grupos[cat] = folium.FeatureGroup(name=cat)
+        m.add_child(grupos[cat])
 
-    # Cores para as categorias de propriedades
-    cores = {
-        'Minifundio': '#9b19f5',
-        'Pequena Propriedade': '#0040bf',
-        'Média Propriedade': '#e6d800',
-        'Grande Propriedade': '#d97f00'
-    }
+    # 3. Adiciona cada geometria ao grupo correto
+    for _, row in gdf.iterrows():
+        fg = grupos[row['categoria']]
+        folium.GeoJson(
+            row.geometry,
+            style_function=lambda feat, cat=row['categoria']: {
+                'fillColor': CORES[cat],
+                'color': 'black',
+                'weight': 0.5,
+                'fillOpacity': 0.7
+            },
+            tooltip=(
+                f"<strong>Nome:</strong>{row['imovel']}<br>"
+                f"<strong>Núm. INCRA:</strong>{row['numero_incra']}<br>"
+                f"<strong>Situação:</strong>{row['situacao_juridica']}<br>"
+                f"<strong>Município:</strong> {row['nome_municipio']}<br>"
+                f"<strong>Distrito:</strong> {row['distrito']}<br>"
+                f"<strong>Região Administrativa:</strong>{row['regiao_administrativa']}<br>"
+                f"<strong>Área:</strong> {row['area']} ha<br>"
+                f"<strong>Categoria:</strong> {row['categoria']}<br>"
+            )
+        ).add_to(fg)
 
-    # Adiciona camadas para cada categoria de propriedade
-    for categoria, cor in cores.items():
-        gdf_categoria = gdf[gdf['categoria'] == categoria]
+    # 4. Legenda estática  e controle de camadas
+    legend = f'''
+      <div style="position: fixed; top: 150px; right: 150px; z-index:1000;
+                  background:white; padding:10px; border:2px solid grey;
+                  border-radius:5px; font-size:14px;">
+        <strong>{regiao}</strong><br>
+        {'<br>'.join([f'<i style="color:{c}">■</i> {cat}' 
+            for cat,c in CORES.items()])}
+      </div>
+    '''
+    m.get_root().html.add_child(folium.Element(legend))
 
-        if not gdf_categoria.empty:
-            folium.GeoJson(
-                data=gdf_categoria.to_json(),
-                style_function=lambda feature, cor=cor: {
-                    'fillColor': cor,
-                    'color': 'black',
-                    'weight': 1,
-                    'fillOpacity': 0.7
-                },
-                name=categoria,
-                tooltip=folium.GeoJsonTooltip(
-                    fields=["nome_municipio", "imovel", "area", "modulo_fiscal", "categoria"],
-                    aliases=["Município", "Imóvel", "Área (ha)", "Módulo Fiscal", "Categoria"],
-                    localize=True,
-                    sticky=False,
-                    labels=True,
-                    style="""
-                        background-color: #F0EFEF;
-                        border: 2px solid black;
-                        border-radius: 3px;
-                        box-shadow: 3px;
-                        text-wrap: pretty;
-                    """,
-                    max_width=400,
-                )
-            ).add_to(mapa)
+    # 5. Adiciona o controle de camadas
+    folium.LayerControl(collapsed=True).add_to(m)
 
-    # Adiciona controle de camadas
-    folium.LayerControl().add_to(mapa)
+    return m
 
-    # Legenda e título (mantidos da versão anterior)
-    legenda_html = """
-    <div style="
-        position: fixed;
-        top: 50px;
-        right: 100px;
-        z-index: 1000;
-        background-color: white;
-        padding: 10px;
-        border: 2px solid grey;
-        border-radius: 5px;
-        font-size: 14px;
-    ">
-        <p><strong>Tipos de Propriedades</strong></p>
-    """
-    for categoria, cor in cores.items():
-        legenda_html += f"""
-        <p><i class="fa fa-square" style="color: {cor};"></i> {categoria}</p>
-        """
-    legenda_html += """
-        <p><i class="fa fa-square" style="color: #000000;"></i> Contornos Municipais</p>
-    </div>
-    """
-    mapa.get_root().html.add_child(folium.Element(legenda_html))
 
-    titulo_html = """
-    <div style="
-        position: fixed;
-        top: 10px;
-        left: 50px;
-        z-index: 1000;
-        background-color: white;
-        padding: 10px;
-        border: 2px solid grey;
-        border-radius: 5px;
-        font-size: 18px;
-        font-weight: bold;
-    ">
-        Malha Fundiária do Ceará
-        <div style="font-size: 14px;">
-          Lotes classificados com base em suas áreas
-        </div>
-    </div>
-    """
-    mapa.get_root().html.add_child(folium.Element(titulo_html))
+# ————————————————————————————————————————————————————————————————————
+def mostrar_mapa_regiao(data: pd.DataFrame, regiao: str):
+    """Função principal que limpa, classifica e exibe o mapa."""
+    clear_output(wait=True)
+    display(dropdown)  # mantém o dropdown visível
+    try:
+        print(f"🔍 Processando região: {regiao}")
+        gdf = carregar_dados_por_regiao(data, regiao)
+        print(f"✅ Propriedades válidas: {len(gdf)}")
+        print("📊 Distribuição:")
+        print(gdf['categoria'].value_counts().to_string())
+        print("🖱️ Gerando mapa…")
+        mapa = criar_mapa_com_camadas(gdf, regiao)
+        display(mapa)
+    except Exception as e:
+        print(f"❌ Erro: {e}")
 
-    return mapa
+# ————————————————————————————————————————————————————————————————————
+# PIPELINE PRINCIPAL
 
-def pipeline(data: pd.DataFrame, municipios_ce: gpd.GeoDataFrame):
-    """
-    Pipeline principal atualizado:
-    1. Prepara os dados
-    2. Classifica as propriedades
-    3. Cria o mapa com ambas as camadas
-    """
-    # Prepara os dados
-    gdf, _ = preparar_dados(data)
+# ————————————————————————————————————————————————————————————————————
+#1.  pré-processa TUDO antes do dropdown existir
+gdf_classificado = preprocessar_tudo(data.sample(10000))
 
-    # Classifica as propriedades
-    gdf_classificado = classificar_propriedades(gdf)
 
-    # Cria o mapa com os municípios e propriedades
-    mapa = criar_mapa(gdf_classificado, municipios_ce)
-    return mapa
+# ————————————————————————————————————————————————————————————————————
+# 2. Cria e exibe o dropdown
+regioes = sorted(gdf_classificado['regiao_administrativa'].unique())
+dropdown = widgets.Dropdown(
+    options=regioes,
+    description='Escolha a Região:',
+    style={'description_width': 'initial'},
+    layout=widgets.Layout(width='40%')
+)
+dropdown.observe(lambda change: mostrar_mapa_regiao(gdf_classificado, change.new), names='value')
+display(dropdown)
 
-try:
-    malha_fundiaria_ceara = pipeline(data.sample(100000), municipios_ce)
-    malha_fundiaria_ceara.save('mapa_malha_fundiaria.html')
-    display(malha_fundiaria_ceara)
-except Exception as e:
-    print(f"Erro ao gerar o mapa: {e}")
-
+#3. Exibe inicialmente
+mostrar_mapa_regiao(gdf_classificado, regioes[0])

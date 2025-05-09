@@ -1,0 +1,20 @@
+/* style.css — tons pastéis e bordas arredondadas */
+
+body {
+  background-color: #FFFDD0; /* creme pastel */
+}
+
+.stButton button {
+  background-color: #AACCEE !important; /* azul pastel */
+  border-radius: 8px !important;
+}
+
+.stSidebar {
+  background-color: #FFD1DC !important; /* rosa pastel */
+}
+
+.stDataFrameWrapper, .stTable {
+  background-color: #FEF8E7;
+  border-radius: 8px;
+  padding: 0.5rem;
+}
