@@ -40,6 +40,10 @@ with open("style.css") as f:
 # 3) Título da aplicação
 # ---------------------------------------------------
 st.title("ccTerra::Concentração Fundiária")
+st.sidebar.markdown("login?")
+st.sidebar.markdown("Tem como limitar o tamanho dos gráficos")
+st.markdown("<h1 class='custom-header'>Cientista Chefe Terra</h1>", unsafe_allow_html=True)
+
 
 # ---------------------------------------------------
 # 4) Carrega e valida dados
@@ -75,8 +79,8 @@ page = st.sidebar.selectbox(
     "Navegação", ["Gráficos", "Mapa Contextual", "Mapa Interativo"]
 )
 
-
 st.logo("./assets/CC_Terra.png", size="large")
+
 # ---------------------------------------------------
 # 7) Lógica de cada aba
 # ---------------------------------------------------
@@ -86,7 +90,7 @@ if page == "Gráficos":
     )
     entidade = None
     if opcao != "Todo o Estado":
-        col = "nome_municipio" if opcao == "Municípios" else "regiao_administrativa"
+        col = "nome_municipio" if opcao == "Municípios" else "regiao_administrativa" 
         entidade = st.sidebar.selectbox(
             f"Selecionar {opcao}",
             sorted(df_class[col].dropna().unique())
@@ -99,6 +103,7 @@ if page == "Gráficos":
 
     if resultados:
         st.subheader(f"Classificação de Propriedades ({opcao})")
+        st.html('<sapn>Dados atualizadoe em xx/xx/2025</span>')
         df_tab = pd.DataFrame(
             list(resultados.items()), columns=["Categoria", "Quantidade"]
         )
@@ -117,6 +122,24 @@ if page == "Gráficos":
 
         col2.subheader("Estatísticas Adicionais")
         col2.table(compute_stats_df(df_class))
+
+        tab1, tab2, tab3 = st.tabs(["📈 Gráfico", "🗃 Dados", "📈 Circulo"])
+        data = np.random.randn(10, 1)
+
+        # tab1.line_chart(data)
+        tab1.pyplot(fig) # // colocar as estatisticass adicionais do lado do grafico de pizza
+
+        tab2.subheader("Estatísticas Adicionais")
+        # tab2.write(data)
+        tab2.table(compute_stats_df(df_class))
+
+        fig = plot_pizza(resultados, f"Propriedades - {opcao}", f"Total: {total}")
+        tab3.pyplot(fig)
+
+
+
+
+
     else:
         st.warning("Nenhum dado disponível para o filtro selecionado.")
 
@@ -133,4 +156,5 @@ else:  # Mapa Interativo
         sorted(gdf_inter['regiao_administrativa'].unique())
     )
     mapa = criar_mapa_com_camadas(gdf_inter, sel_regiao)
+
     st_folium(mapa, width=800, height=600)
