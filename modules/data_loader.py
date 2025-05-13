@@ -11,6 +11,7 @@ _DATA_PREFIX    = 'dataset-malha-fundiaria-idace_preprocessado-'
 _DATA_SUFFIX    = '.csv'
 _MUNI_GEOJSON   = 'geojson-municipios_ceara-normalizado.geojson'
 
+# @st.cache_data  # VEr parte de CAche do Streamli : https://docs.streamlit.io/develop/concepts/architecture/caching
 
 def get_latest_dataset(base_folder: str) -> str:
     files = [f for f in os.listdir(base_folder)
