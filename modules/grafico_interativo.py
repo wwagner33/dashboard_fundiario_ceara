@@ -86,7 +86,7 @@ def plot_barras(resultados, titulo, subtitulo)-> plt.Figure:
         "Média Propriedade": cores["Média Propriedade"],
         "Grande Propriedade": cores["Grande Propriedade"]
     }
-    fig, ax = plt.subplots(figsize=(20, 20))
+    fig, ax = plt.subplots(figsize=(10, 10))
 
     # Get colors in correct order
     colors = [color_map[cat] for cat in resultados.keys()]
@@ -121,7 +121,7 @@ def plot_pizza(resultados, titulo, subtitulo)-> plt.Figure:
         "Média Propriedade": cores["Média Propriedade"],
         "Grande Propriedade": cores["Grande Propriedade"]
     }
-    fig, ax = plt.subplots(figsize=(20, 20))
+    fig, ax = plt.subplots(figsize=(10, 10))
 
     # Get colors in correct order
     colors = [color_map[cat] for cat in resultados.keys()]

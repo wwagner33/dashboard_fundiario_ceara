@@ -19,6 +19,11 @@ body {
   padding: 0.5rem;
 }
 
+.stSelectbox div > div{
+  background-color: #fbe4e9;
+}
+
+
 .stApp > header {
   background-color: transparent;
 }
