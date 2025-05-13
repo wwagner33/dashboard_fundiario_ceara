@@ -17,7 +17,7 @@ cores = {
 
 
 def preparar_dados(
-    df_ctx: pd.DataFrame, _muni_gdf: gpd.GeoDataFrame
+    df_ctx: pd.DataFrame, muni_gdf: gpd.GeoDataFrame
 ) -> gpd.GeoDataFrame:
     """
     Agrega contagens por município, calcula dominante e proporção de dominância.
@@ -35,7 +35,7 @@ def preparar_dados(
     tbl = tbl.reset_index()
 
     # 4) Mescla com geometria dos municípios
-    gdf = _muni_gdf.merge(tbl, on="municipio_norm", how="left")
+    gdf = muni_gdf.merge(tbl, on="municipio_norm", how="left")
 
     # 5) Preenche zeros e dados faltantes
     for col in [
