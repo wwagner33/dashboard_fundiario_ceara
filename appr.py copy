@@ -6,8 +6,7 @@ import pandas as pd
 from streamlit_folium import st_folium
 
 from modules import (
-    load_csv_data as load_data,
-    load_municipios,
+    load_data,
     validate_data,
     filtrar_dados,
     classificar_propriedades,
@@ -52,7 +51,7 @@ preprocessar_tudo = st.cache_data()(
 # -----------------------------
 
 st.set_page_config(
-    page_title="ccTerra::Análise da Concentração Fundiária do Ceará",
+    page_title="ccTerra::Concentração Fundiária",
     page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -134,9 +133,9 @@ elif page == "Mapa Contextual":
     st_folium(mapa, width=800, height=600)
 
 else:  # Mapa Interativo
-    #gdf_inter = preprocessar_tudo(df_inter)
+    gdf_inter = preprocessar_tudo(df_inter)
     sel_regiao = st.sidebar.selectbox(
-        "Região Administrativa", sorted(df_inter["regiao_administrativa"].unique())
+        "Região Administrativa", sorted(gdf_inter["regiao_administrativa"].unique())
     )
-    mapa = criar_mapa_com_camadas(df_inter, sel_regiao)
+    mapa = criar_mapa_com_camadas(gdf_inter, sel_regiao)
     st_folium(mapa, width=800, height=600)
