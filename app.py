@@ -26,13 +26,14 @@ from modules import (
 def graficos_e_quadros():
     col1, col2 = st.columns([1, 1]) 
     tab1, tab2 = col1.tabs(["📈 Barra", "📈 Pizza"])
-    opcao = col2.selectbox(
+    co2_1, co2_2 = col2.columns([1, 1]) 
+    opcao = co2_1.selectbox(
         "Mostrar por", ["Todo o Estado", "Municípios", "Regiões Administrativas"]
     )
     entidade = None
     if opcao != "Todo o Estado":
         col = "nome_municipio" if opcao == "Municípios" else "regiao_administrativa" 
-        entidade = col2.selectbox(
+        entidade = co2_2.selectbox(
             f"Selecionar {opcao}",
             sorted(df_class[col].dropna().unique())
         )
@@ -151,9 +152,6 @@ st.logo("./assets/CC_Terra.png", size="large")
 # ---------------------------------------------------
 # 7) Lógica de cada aba
 # ---------------------------------------------------
-
-
-
 if page == "Gráficos":
     graficos_e_quadros()
 
@@ -162,6 +160,3 @@ elif page == "Mapa Contextual":
 
 else:  # Mapa Interativo
     mapa_interativo()
-
-
-
