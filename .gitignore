@@ -172,3 +172,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# remove dataset
+data/
+out/
+
+ # emove pastas de cache
+ __pycache__/
