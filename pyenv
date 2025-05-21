@@ -4,9 +4,10 @@
 if [ ! -d ".venv" ]; then
     echo "Creating virtual environment..."
     python3 -m venv .venv
-    source ./.venv/bin/activate
+    source .venv/bin/activate
 else
     echo "Activating virtual environment..."
-    source ./venv/bin/activate
+    source .venv/bin/activate
+    echo "Virtual environment activated."
 fi
 
