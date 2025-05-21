@@ -173,9 +173,20 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+<<<<<<< HEAD
+# Base de Dados
+*.csv
+.csv
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+=======
 # remove dataset
-data/
-out/
+*.csv
+.csv
 
  # emove pastas de cache
  __pycache__/
+>>>>>>> otimizacao_de_carga

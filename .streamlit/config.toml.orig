@@ -1,4 +1,13 @@
 [server]
+<<<<<<< HEAD
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+port = 8501
+
+[theme]
+base="light"
+=======
 headless              = false
 enableCORS            = true
 port                  = 5000
@@ -17,3 +26,4 @@ font                     = "sans serif"
 [logger]
 level = "info"
 
+>>>>>>> otimizacao_de_carga
