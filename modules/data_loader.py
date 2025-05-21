@@ -1,6 +1,7 @@
 # modules/data_loader.py
 
 import os
+import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -20,7 +21,7 @@ def get_latest_dataset(base_folder: str) -> str:
     files.sort()
     return os.path.join(base_folder, files[-1])
 
-
+@st.cache_data
 def load_csv_data(base_folder: str) -> pd.DataFrame:
     """
     Lê o CSV mais recente, faz as conversões e classifica cada parcela
