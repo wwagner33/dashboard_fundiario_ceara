@@ -127,8 +127,8 @@ st.set_page_config(
 with open("style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-st.title("ccTerra::Concentração Fundiária")
-st.markdown("<h1 class='custom-header'>Cientista Chefe Terra</h1>", unsafe_allow_html=True)
+st.title("ccTerra::Classificação de Lotes")
+st.markdown("<h1 class='custom-header'>ccTerra::Dashboard Fundiário</h1>", unsafe_allow_html=True)
 
 
 # Carrega e valida dados
