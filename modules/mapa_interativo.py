@@ -14,13 +14,10 @@ from shapely.geometry import Point
 
 # ————————————————————————————————————————————————————————————————————
 # Configuração de cores por categoria
-CORES = {
-    "Minifúndio": "#9b19f5",
-    "Pequena Propriedade": "#0040bf",
-    "Média Propriedade": "#e6d800",
-    "Grande Propriedade": "#d97f00",
-    "Sem Classificação": "#808080"
-}
+from public.cores import CORES as cores
+
+CORES = cores
+CORES["Sem Classificação"] = "#808080"
 
 # ————————————————————————————————————————————————————————————————————
 def carregar_dados_por_regiao(data: pd.DataFrame, regiao: str) -> gpd.GeoDataFrame:

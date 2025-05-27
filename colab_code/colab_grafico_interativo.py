@@ -65,7 +65,7 @@ def filtrar_dados(data, filtro, entidade):
 def classificar_propriedades(df):
     """
     Classifica as propriedades com base em seu tamanho em relação ao módulo fiscal de cada registro:
-        1. Minifúndio: 0 < àrea < 1MF
+        1. z: 0 < àrea < 1MF
         2. Pequena Propriedade: 1 MF ≤ àrea ≤ 4 MF
         3. Média Propriedade: 4 MF < àrea ≤ 15 MF
         4. Grande Propriedade: àrea >15 MF

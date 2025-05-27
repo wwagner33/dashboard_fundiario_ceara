@@ -53,7 +53,7 @@ def load_csv_data(base_folder: str) -> pd.DataFrame:
     mf   = df['modulo_fiscal']
     area = df['area']
     df['categoria'] = np.where(
-        area < mf, 'Minifúndio',
+        area < mf, 'Pequena Propriedade < 1 MF',
         np.where(area <= 4*mf, 'Pequena Propriedade',
         np.where(area <=15*mf, 'Média Propriedade','Grande Propriedade'))
     )
@@ -142,7 +142,7 @@ def validate_data(df: pd.DataFrame):
         (gdf_inter['area'] > 4 * gdf_inter['modulo_fiscal']) & (gdf_inter['area'] <= 15 * gdf_inter['modulo_fiscal']),
         (gdf_inter['area'] > 15 * gdf_inter['modulo_fiscal'])
     ]
-    cats = ['Minif\u00edndio', 'Pequena Propriedade', 'M\u00e9dia Propriedade', 'Grande Propriedade']
+    cats = ['Pequena Propriedade < 1 MF', 'Pequena Propriedade', 'M\u00e9dia Propriedade', 'Grande Propriedade']
     gdf_inter['categoria'] = np.select(conds, cats, default='Sem Classificação')
 
     # 4) Prepara dados para o mapa contextual

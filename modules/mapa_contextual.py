@@ -6,14 +6,11 @@ import pandas as pd
 from branca.element import Template, MacroElement
 
 # Cores de dominância
-cores = {
-    "Minifúndio": "#9b19f5",
-    "Pequena Propriedade": "#0040bf",
-    "Média Propriedade": "#e6d800",
-    "Grande Propriedade": "#d97f00",
-    "Sem Registro": "#9fa2a5",
-    "Sem Dados": "#cccccc",
-}
+from public.cores import CORES
+
+cores = CORES
+cores["Sem Registro"] = "#9fa2a5"
+cores["Sem Dados"] = "#cccccc"
 
 
 def preparar_dados(
@@ -39,7 +36,7 @@ def preparar_dados(
 
     # 5) Preenche zeros e dados faltantes
     for col in [
-        "Minifúndio",
+        "Pequena Propriedade < 1 MF",
         "Pequena Propriedade",
         "Média Propriedade",
         "Grande Propriedade",
@@ -74,11 +71,11 @@ def criar_mapa_contextual(gdf: gpd.GeoDataFrame) -> folium.Map:
         style_function=style,
         tooltip=folium.features.GeoJsonTooltip(
             fields=[
-                'nome_municipio','total','Minifúndio','Pequena Propriedade',
+                'nome_municipio','total','Pequena Propriedade < 1 MF','Pequena Propriedade',
                 'Média Propriedade','Grande Propriedade','dominante'
             ],
             aliases=[
-                'Município','Total de Lotes','Total de Minifúndios',
+                'Município','Total de Lotes','Total de Pequena Propriedade < 1 MF',
                 'Total de Pequenas Propriedades','Total de Médias Propriedades',
                 'Total de Grandes Propriedades','Categoria Dominante'
             ],
