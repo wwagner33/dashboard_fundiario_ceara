@@ -153,7 +153,7 @@ def classificar_propriedades(df: pd.DataFrame) -> pd.DataFrame:
     Classifica as propriedades em categorias com base na área e no módulo fiscal.
 
     Categorias definidas:
-    - Minifundio: área > 0 e menor que um módulo fiscal.
+    - Pequena Propriedade < 1 MF: área > 0 e menor que um módulo fiscal.
     - Pequena Propriedade: área entre um módulo fiscal e 4 módulos fiscais.
     - Média Propriedade: área entre 4 e 15 módulos fiscais.
     - Grande Propriedade: área maior que 15 módulos fiscais.
@@ -175,17 +175,17 @@ def classificar_propriedades(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return None, None
 
-    cond_minifundio = (df['area'] > 0) & (df['area'] < 1 * df['modulo_fiscal'])
+    cond_pequena_menor_1mf = (df['area'] > 0) & (df['area'] < 1 * df['modulo_fiscal'])
     cond_pequena    = (df['area'] >= 1 * df['modulo_fiscal']) & (df['area'] <= 4 * df['modulo_fiscal'])
     cond_media      = (df['area'] > 4 * df['modulo_fiscal']) & (df['area'] <= 15 * df['modulo_fiscal'])
     cond_grande     = (df['area'] > 15 * df['modulo_fiscal'])
 
-    # cond_minifundio = (df['area'] > 0) & (df['area'] < 1*df['modulo_fiscal'])
+    # cond_pequena_menor_1mf = (df['area'] > 0) & (df['area'] < 1*df['modulo_fiscal'])
     # cond_pequena = (df['area'] >= df['modulo_fiscal']) & (df['area'] <= 4 * df['modulo_fiscal'])
     # cond_media = (df['area'] > 4 * df['modulo_fiscal']) & (df['area'] <= 15 * df['modulo_fiscal'])
     # cond_grande = (df['area'] > 15 * df['modulo_fiscal'])
     df['categoria'] = None
-    df.loc[cond_minifundio, 'categoria'] = 'Minifundio'
+    df.loc[cond_pequena_menor_1mf, 'categoria'] = 'Pequena Propriedade < 1 MF'
     df.loc[cond_pequena, 'categoria'] = 'Pequena Propriedade'
     df.loc[cond_media, 'categoria'] = 'Média Propriedade'
     df.loc[cond_grande, 'categoria'] = 'Grande Propriedade'
@@ -217,7 +217,7 @@ def criar_df_heatmap(data_classificada: pd.DataFrame, municipios_ce: pd.DataFram
     contagem_propriedades = data_classificada.groupby(['nome_municipio', 'categoria']).size().unstack(fill_value=0)
     contagem_propriedades.reset_index(inplace=True)
     contagem_propriedades.rename(columns={
-        'Minifundio': 'qtde_minifuncio',
+        'Pequena Propriedade < 1 MF': 'qtde_pequena_propriedade_menor_1_MF',
         'Pequena Propriedade': 'qtde_pequena_propriedade',
         'Média Propriedade': 'qtde_media_propriedade',
         'Grande Propriedade': 'qtde_grande_propriedade'
@@ -226,7 +226,7 @@ def criar_df_heatmap(data_classificada: pd.DataFrame, municipios_ce: pd.DataFram
     df_heatmap = municipios_ce[['nome_municipio', 'geometry']].copy()
     df_heatmap = df_heatmap.merge(contagem_propriedades, on='nome_municipio', how='left')
     df_heatmap.fillna({
-        'qtde_minifuncio': 0,
+        'qtde_pequena_propriedade_menor_1_MF': 0,
         'qtde_pequena_propriedade': 0,
         'qtde_media_propriedade': 0,
         'qtde_grande_propriedade': 0
@@ -240,7 +240,7 @@ def criar_df_heatmap(data_classificada: pd.DataFrame, municipios_ce: pd.DataFram
 
     # Calcula a coluna 'total'
     df_heatmap['total'] = (
-        df_heatmap['qtde_minifuncio'].astype(int) +
+        df_heatmap['qtde_pequena_propriedade_menor_1_MF'].astype(int) +
         df_heatmap['qtde_pequena_propriedade'].astype(int) +
         df_heatmap['qtde_media_propriedade'].astype(int) +
         df_heatmap['qtde_grande_propriedade'].astype(int)
@@ -251,7 +251,7 @@ def criar_df_heatmap(data_classificada: pd.DataFrame, municipios_ce: pd.DataFram
         if row['total'] == 0:
             return "Sem Registro"
         contagens = {
-            "Minifundio": row['qtde_minifuncio'],
+            "Pequena Propriedade < 1 MF": row['qtde_pequena_propriedade_menor_1_MF'],
             "Pequena Propriedade": row['qtde_pequena_propriedade'],
             "Média Propriedade": row['qtde_media_propriedade'],
             "Grande Propriedade": row['qtde_grande_propriedade']
@@ -324,7 +324,7 @@ def criar_choropleth_contextual(df_heatmap):
     Munícipios sem registro => cor cinza, opacidade.
     """
     # cores = {
-    #     "Minifundio": "#3182bd",
+    #     "qtde_pequena_propriedade_menor_1_MF": "#3182bd",
     #     "Pequena Propriedade": "#31a354",
     #     "Média Propriedade": "#ffec08",
     #     "Grande Propriedade": "#FF6347",
@@ -332,7 +332,7 @@ def criar_choropleth_contextual(df_heatmap):
     # }
 
     cores = {
-        "Minifundio": "#9b19f5",
+        "Pequena Propriedade < 1 MF": "#9b19f5",
         "Pequena Propriedade": "#0040bf",
         "Média Propriedade": "#e6d800",
         "Grande Propriedade": "#d97f00",
@@ -369,9 +369,9 @@ def criar_choropleth_contextual(df_heatmap):
         name="Choropleth Map Contextual",
         style_function=style_function,
         tooltip=folium.GeoJsonTooltip(
-            fields=['nome_municipio', 'qtde_minifuncio', 'qtde_pequena_propriedade',
+            fields=['nome_municipio', 'qtde_pequena_propriedade_menor_1_MF', 'qtde_pequena_propriedade',
                     'qtde_media_propriedade', 'qtde_grande_propriedade', 'total', 'dominante'],
-            aliases=['Município:', 'Minifundio:', 'Pequena Propriedade:', 'Média Propriedade:', 'Grande Propriedade:', 'Total:', 'Dominante:'],
+            aliases=['Município:', 'Pequena Propriedade < 1 MF:', 'Pequena Propriedade:', 'Média Propriedade:', 'Grande Propriedade:', 'Total:', 'Dominante:'],
             localize=True
         )
     ).add_to(mapa)
@@ -428,7 +428,7 @@ def criar_choropleth_contextual(df_heatmap):
         font-size: 14px;
     ">
       <p><strong>Legenda - Tipo Dominante</strong></p>
-      <p><i style="background:{cores["Minifundio"]}; width: 10px; height: 10px; display: inline-block;"></i> Minifundio</p>
+      <p><i style="background:{cores["Pequena Propriedade < 1 MF"]}; width: 10px; height: 10px; display: inline-block;"></i> Pequena Propriedade < 1 MF</p>
       <p><i style="background:{cores["Pequena Propriedade"]}; width: 10px; height: 10px; display: inline-block;"></i> Pequena Propriedade</p>
       <p><i style="background:{cores["Média Propriedade"]}; width: 10px; height: 10px; display: inline-block;"></i> Média Propriedade</p>
       <p><i style="background:{cores["Grande Propriedade"]}; width: 10px; height: 10px; display: inline-block;"></i> Grande Propriedade</p>
@@ -481,7 +481,7 @@ def main():
 
         # Calcula a quantidade de municípios por dominância
     dominancia = df_heatmap['dominante'].value_counts()
-    minifundio_count = dominancia.get("Minifundio", 0)
+    pequena_propriedade_m_1mf_count = dominancia.get("Pequena Propriedade < 1 MF", 0)
     pequena_count = dominancia.get("Pequena Propriedade", 0)
     media_count = dominancia.get("Média Propriedade", 0)
     grande_count = dominancia.get("Grande Propriedade", 0)
@@ -496,7 +496,7 @@ def main():
             "Quantidade de municípios com pelo menos um registro (em data)",
             "Quantidade de municípios no mapa (df_heatmap)",
             "Quantidade de Propriedades efetivamente utilizadas (soma dos totais)",
-            "Municípios com Dominância de Minifundios",
+            "Municípios com Dominância de Pequenas Propriedades < 1 MF",
             "Municípios com Dominância de Pequenas Propriedades",
             "Municípios com Dominância de Médias Propriedades",
             "Municípios com Dominância de Grandes Propriedades",
@@ -509,7 +509,7 @@ def main():
             municipios_com_propriedade,
             municipios_utilizados,
             total_registros_utilizados,
-            minifundio_count,
+            pequena_propriedade_m_1mf_count,
             pequena_count,
             media_count,
             grande_count,

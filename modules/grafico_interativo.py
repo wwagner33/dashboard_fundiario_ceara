@@ -12,15 +12,14 @@ Funções para gerar os gráficos de classificação:
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from public.cores import CORES as cores
 
 # Add this near the top of the code (with other constants)
-CORES = {
-    "Minifúndio": "#9b19f5",
-    "Pequena Propriedade": "#0040bf",
-    "Média Propriedade": "#e6d800",
-    "Grande Propriedade": "#d97f00",
-    "Sem Registro": "#9fa2a5",
-}
+
+
+CORES = cores
+CORES["Sem Registro"] = "#9fa2a5"
+
 
 
 def filtrar_dados(df: pd.DataFrame, scope: str, entidade: str = None) -> pd.DataFrame:
@@ -39,7 +38,7 @@ def classificar_propriedades(df: pd.DataFrame):
     area = df["area"]
     categorias = np.where(
         area < mf,
-        "Minifúndio",
+        "Pequena Propriedade < 1 MF",
         np.where(
             area <= 4 * mf,
             "Pequena Propriedade",
@@ -58,7 +57,7 @@ def plot_barras(resultados, titulo, subtitulo) -> plt.Figure:
     """
     # Map category names to colors
     color_map = {
-        "Minifúndio": CORES["Minifúndio"],
+        "Pequena Propriedade < 1 MF": CORES["Pequena Propriedade < 1 MF"],
         "Pequena Propriedade": CORES["Pequena Propriedade"],
         "Média Propriedade": CORES["Média Propriedade"],
         "Grande Propriedade": CORES["Grande Propriedade"],
@@ -103,7 +102,7 @@ def plot_pizza(resultados, titulo, subtitulo) -> plt.Figure:
     """
     # Map category names to colors
     color_map = {
-        "Minifúndio": CORES["Minifúndio"],
+        "Pequena Propriedade < 1 MF": CORES["Pequena Propriedade < 1 MF"],
         "Pequena Propriedade": CORES["Pequena Propriedade"],
         "Média Propriedade": CORES["Média Propriedade"],
         "Grande Propriedade": CORES["Grande Propriedade"],
