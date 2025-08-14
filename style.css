@@ -1058,6 +1058,16 @@ div:has(> .stElementContainer > .stHtml > .teste) {
   margin: auto;
 }
 
+div[data-testid="stElementContainer"]:has(.imgs_logo_apoio) ~ div[data-testid="stElementContainer"] img {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+div[data-testid="stFullScreenFrame"] > div {
+  margin: auto;
+}
+
 /* line 41, resources/sass/components/_redes-sociais.scss */
 .redesLink, .redesLinkRodape {
   /* Positioning */

@@ -164,6 +164,7 @@ def sobre():
         st.markdown("https://github.com/Projeto-Cientista-Chefe-Terra")
 
         st.header("Apoio")
+        st.html("""<div class="imgs_logo_apoio"></div>""")
         st.image("./assets/Logos.png", use_container_width=True)
         col1, col2, col3, col4 = st.columns(
             4,
