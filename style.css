@@ -1124,6 +1124,18 @@ div[data-testid="stFullScreenFrame"] > div {
   margin: auto;
 } */
 
+div:has(.teste) .container-estilizado2 {
+  margin: 0 !important;
+}
+
+div:has(.teste) .container-estilizado {
+  margin: 0 !important;
+}
+
+div:has(.teste) .container-estilizado a {
+  color: #000000;
+}
+
 /* ============ MEDIA QUERIES ============ */
 
 /* Tablet (768px a 1024px) */
