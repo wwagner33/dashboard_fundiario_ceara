@@ -8,6 +8,7 @@ from typing import TypedDict
 from folium.plugins import MiniMap, Fullscreen
 
 from streamlit_folium import st_folium
+from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
 from public.cores import CORES 
 
 
@@ -99,12 +100,17 @@ def criar_mapa_contextual(
         "Sem Registros": "#cccccc",
     }
     
-    mapa = folium.Map(location=[-5.4984, -39.3200], zoom_start=7)
-    
+    mapa = folium.Map(
+        location=[-5.4984, -39.3200], 
+        zoom_start=7,
+        control_scale=True,
+    )
+    if "geo_muni" not in st.session_state:
+        st.session_state.geo_muni = carregar_municipios("todos")
     # Adiciona contorno dos municípios se fornecido
     if contorno_municipios is not None:
         folium.GeoJson(
-            contorno_municipios,
+            st.session_state.geo_muni,
             style_function=lambda x: {"fillOpacity": 0, "color": "#888", "weight": 3},
             tooltip=folium.GeoJsonTooltip(fields=["nome_municipio"], aliases=["Município"]),
             name="Limite dos Municípios"
@@ -129,6 +135,7 @@ def criar_mapa_contextual(
                 name=f"Mapa de Calor: {categoria_heatmap}"
             ).add_to(mapa)
     else:
+        adicionar_camada_municipios(mapa, st.session_state.geo_muni)
         # Mapa Coroplético
         folium.GeoJson(
             gdf,
