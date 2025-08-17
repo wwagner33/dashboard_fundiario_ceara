@@ -6,6 +6,7 @@ from folium.features import GeoJsonTooltip
 from shapely.geometry import Polygon, MultiPolygon
 from streamlit_folium import st_folium
 from folium.plugins import MiniMap, Fullscreen
+from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
 from public.cores import CORES_GINI
 
 # Cálculo de Gini (fórmula clássica)
@@ -106,7 +107,10 @@ def style_fn(f):
 # Renderização de mapas com clique habilitado
 def render_map(tab, geo_df):
     with tab:
-        m = folium.Map(location=[-5.2, -39.5], zoom_start=8, tiles="cartodbpositron")
+        m = folium.Map(location=[-5.2, -39.5], zoom_start=8, tiles="cartodbpositron", control_scale=True,prefer_canvas=True)
+        if "geo_muni" not in st.session_state:
+            st.session_state.geo_muni = carregar_municipios("todos")
+        adicionar_camada_municipios(m, st.session_state.geo_muni)
         tooltip = GeoJsonTooltip(
             fields=["nome_municipio_original", "gini_area", "cnt"],
             aliases=["Município: ", "Índice de Gini: ", "Imóveis: "],
@@ -133,6 +137,7 @@ def render_map(tab, geo_df):
             <i style='background:#D3D3D3;width:12px;height:12px;float:left;margin-right:4px'></i>Sem dados
             </div>"""
         m.get_root().html.add_child(folium.Element(legend_html))
+        
         MiniMap(toggle_display=True).add_to(m)
         Fullscreen().add_to(m)
         return st_folium(
