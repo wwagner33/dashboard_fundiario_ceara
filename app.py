@@ -120,50 +120,103 @@ def mapa_hidrográfico():
 
 ######################### Sobre o projeto  #######################
 def sobre():
+    st.markdown(
+        """
+        <div class="minha-div">
+            <img src="https://i.imgur.com/N1Ymd3d.png" alt="Imagem do IDACE">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     with st.container():
         st.html("""<div class="teste"></div>""")
-        st.markdown(
-            """
-        Aplicação de painéis contendo dados estatísticos e geoespaciais da malha fundiária cearense desenvolvido, principalmente, a partir dos dados cadastrados no Instituto de Desenvolvimento Agrário do Ceará (IDACE). Este software faz parte das ações realizadas no âmbito do projeto **Cientista Chefe Terra  de Governança Fundiária e Ambiental**, parceria entre o IDACE, a Universidade Federal do Ceará (UFC) e a Fundação Cearense de Apoio ao Desenvolvimento Científico e Tecnológico (Funcap).
-        """
-        )
+        st.html("""
+                <div class="container-estilizado2">
+                <h4>O projeto Terra.Ce</h4>
+                <p> 
+                  Aplicação de painéis contendo dados estatísticos e geoespaciais 
+                  da malha fundiária cearense desenvolvido, principalmente, a partir 
+                  dos dados cadastrados no Instituto de Desenvolvimento Agrário do Ceará (IDACE).
+                  Este software faz parte das ações realizadas no âmbito do projeto 
+                  <strong>Cientista Chefe Terra  de Governança Fundiária e Ambiental</strong>, parceria entre o IDACE, a Universidade Federal do Ceará (UFC) e a Fundação Cearense de Apoio ao Desenvolvimento Científico e Tecnológico (Funcap).
+                </p>
+                <p style='padding-top: 5px;'> <i>Coordenadora Geral </br> Maria Inês Escobar da Costa Casimiro </i></p>
+                </div>
+                """)
 
-        # Coordenadora Geral
-        st.subheader("Coordenadora Geral")
-        st.markdown(
-            """    
-        Profa. Maria Inês Escobar da Costa (UFC)
-        """
-        )
+        # Equipe de desenvolvimento
+        st.html("""
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Equipe de Desenvolvimento - TerraCE</h3>
+                <span class="titulo">Coordenadora Técnico de Sistemas/UFC</span>
+                <span class="subtitulo">Wellington Wagner Ferreira Sarmento</span>
 
-        # Equipe de Desenvolvimento
-        st.subheader("Equipe de Desenvolvimento")
-        st.markdown(
-            """
-        Nossa equipe é composta por:
-        - Prof. Wellington Wagner Ferreira Sarmento (SMD-UFC)
-        - Me. Patrícia de Sousa Paula (Doutoranda MDCC-UFC)
-        - André Lucas de Oliveira Domingues (SMD-UFC)
-        - Wesley Barbosa Martins Ribeiro (SMD-UFC)
-        """
-        )
+                <span class="titulo">Doutoranda MDCC/UFC</span>
+                <span class="subtitulo">Me. Patrícia de Sousa Paula</span>
+
+            </div>
+            
+            <!-- Segunda Seção -->
+            <div>
+                <span class="titulo">Pesquisador/UFC</span>
+                <span class="subtitulo">André Lucas de Oliveira Domingues </span>
+
+                <span class="titulo">Pesquisador/UFC</span>
+                <span class="subtitulo">Wesley Barbosa Martins Ribeiro</span>
+            </div>
+            
+        </div>
+        """)
 
         # Licença de Uso
-        st.subheader("Licença de Uso")
-        st.markdown(
-            """
-        [GNU General Public License (GPL)](https://github.com/Projeto-Cientista-Chefe-Terra/dashboard_fundiario_ceara/blob/main/LICENSE)
-        """
-        )
+        st.html("""
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Licença de Uso</h3>
+              
+                <span class="subtitulo"><a href="https://github.com/Projeto-Cientista-Chefe-Terra/dashboard_fundiario_ceara/blob/main/LICENSE" target="_blank" style='text-decoration: underline;'> GNU General Public License (GPL) </a></span>
+
+                
+
+            </div>
+            
+        </div>
+        """)
 
         # Link para o projeto
-        st.header("Cientista Chefe Terra de Governança Fundiária e Ambiental")
-        st.markdown("#### Site Institucional")
-        st.markdown("https://ccterra-site.vercel.app")
-        st.markdown("#### Código Fonte")
-        st.markdown("https://github.com/Projeto-Cientista-Chefe-Terra")
+        st.html("""
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Cientista Chefe Terra de Governança Fundiária e Ambiental</h3>
+                <span class="titulo">Site Institucional</span>
+                <span class="subtitulo">
+                  <a href="https://ccterra-site.vercel.app" target="_blank" style='text-decoration: underline;'>https://ccterra-site.vercel.app</a>
+                </span>
 
-        st.header("Apoio")
+                <span class="titulo">Código Fonte</span>
+                <span class="subtitulo">
+                  <a href="https://github.com/Projeto-Cientista-Chefe-Terra" target="_blank" style='text-decoration: underline;'>https://github.com/Projeto-Cientista-Chefe-Terra</a>
+                </span>
+
+            </div>            
+        </div>
+        """)
+
+        # Apoio
+        st.html("""
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Apoio</h3>
+            </div>            
+        </div>
+        """)
+        
+        st.html("""<div class="imgs_logo_apoio"></div>""")
         st.image("./assets/Logos.png", use_container_width=True)
         col1, col2, col3, col4 = st.columns(
             4,
@@ -465,49 +518,115 @@ if "current_page" not in st.session_state:
 
 # if st.session_state.current_page != 'Inicio':
     # st.logo("./assets/Frame 18.png", size="large")
+import streamlit.components.v1 as components
+
+# Configuração do estado da sessão
+mystate = st.session_state
+if "sidebar_btn_status" not in mystate:
+    mystate.sidebar_btn_status = [False] * 8  # 7 botões na sidebar
+
+# Configurações de cores
+unpressed_colour = "#00824110"    # Cor quando não pressionado
+pressed_colour = "#E1B87EBC"  # Cor quando  pressionado
+
+# # Lista de botões da sidebar
+sidebar_buttons = [
+    {
+        "label": "Início", 
+        "icon": ":material/home:", 
+        "page": "Inicio"
+    },
+    {
+        "label": "Gráficos e Quadros", 
+        "icon": ":material/bar_chart_4_bars:", 
+        "page": "Gráficos"
+    },
+    {
+        "label": "Mapa de Predominância", 
+        "icon": ":material/distance:", 
+        "page": "Mapa de Predominância"
+    },
+    {
+        "label": "Mapa da Malha Fundiária", 
+        "icon": ":material/map_search:", 
+        "page": "Mapa da Malha Fundiária"
+    },
+    {
+        "label": "Mapa de Concentração Fundiária",
+        "icon": ":material/crisis_alert:",
+        "page": "Mapa de Concentração Fundiária"
+    },
+    {
+        "label": "Mapa de Assentamentos",
+        "icon": ":material/globe_location_pin:",
+        "page": "Mapa de Assentamento"
+    },
+    {
+        "label": "Mapa Hidrográfico", 
+        "icon": ":material/water_drop:", 
+        "page": "Mapa Hidrografico"
+    },
+    {
+        "label": "Sobre", 
+        "icon": ":material/info:", 
+        "page": "Sobre"
+    }
+]
+
+# # Função para mudar a cor dos botões
+def ChangeButtonColour(widget_label, prsd_status):
+    btn_bg_colour = pressed_colour if prsd_status else unpressed_colour
+    htmlstr = f"""
+        <script>
+            var elements = window.parent.document.querySelectorAll('button');
+            for (var i = 0; i < elements.length; ++i) {{ 
+                if (elements[i].innerText.includes('{widget_label}')) {{ 
+                    elements[i].style.background = '{btn_bg_colour}';
+                    elements[i].style.color = '#000000';
+                    elements[i].style.border = '1px solid {pressed_colour if prsd_status else '#C5CAE9'}';
+                }}
+            }}
+        </script>
+        """
+    components.html(f"{htmlstr}", height=0, width=0)
+
+# Função para verificar o estado dos botões e atribuir cores
+def ChkBtnStatusAndAssignColour():
+    for i, btn in enumerate(sidebar_buttons):
+        ChangeButtonColour(btn["label"], mystate.sidebar_btn_status[i])
+
+# Callback quando um botão é pressionado
+def btn_pressed_callback(i):
+    # Reseta todos os botões
+    mystate.sidebar_btn_status = [False] * len(sidebar_buttons)
+    # Ativa apenas o botão pressionado
+    mystate.sidebar_btn_status[i] = True
+    # Define a página atual
+    mystate.current_page = sidebar_buttons[i]["page"]
+    # st.rerun()
+
+# # Sidebar
 with st.sidebar:
-    # st.header("")
-    # CSS para ícones Font Awesome
-    if st.button(
-        "Início", use_container_width=True, icon=":material/home:"
-    ):
-        st.session_state.current_page = "Inicio"
-        st.rerun()
-    if st.button(
-        "Gráficos e Quadros", use_container_width=True, icon=":material/bar_chart:"
-    ):
-        st.session_state.current_page = "Gráficos"
-    if st.button(
-        "Mapa de Predominância", use_container_width=True, icon=":material/location_on:"
-    ):
-        st.session_state.current_page = "Mapa de Predominância"
-    if st.button(
-        "Mapa da Malha Fundiária", use_container_width=True, icon=":material/map:"
-    ):
-        st.session_state.current_page = "Mapa da Malha Fundiária"
+    # Cria os botões
+    for i, btn in enumerate(sidebar_buttons):
+        st.button(
+            f"{btn['label']}",
+            icon=btn['icon'],
+            key=f"sidebar_btn_{i}",
+            on_click=btn_pressed_callback,
+            args=(i,),
+            use_container_width=True
+        )
+    
+    # Aplica os estilos aos botões
+    ChkBtnStatusAndAssignColour()
 
-    if st.button(
-        "Mapa de Concentração Fundiária",
-        use_container_width=True,
-        icon=":material/crisis_alert:",
-    ):
-        st.session_state.current_page = "Mapa de Concentração Fundiária"
-
-    if st.button(
-        "Mapa de Assentamentos",
-        use_container_width=True,
-        icon=":material/globe_location_pin:",
-    ):
-        st.session_state.current_page = "Mapa de Assentamento"
-
-    if st.button(
-        "Mapa Hidrográfico", use_container_width=True, icon=":material/water_drop:"
-    ):
-        st.session_state.current_page = "Mapa Hidrografico"
-
-    if st.button("Sobre", use_container_width=True, icon=":material/info:"):
-        st.session_state.current_page = "Sobre"
-
+# Verifica se há uma página atual definida e atualiza o botão correspondente
+# if "current_page" in mystate:
+#     for i, btn in enumerate(sidebar_buttons):
+#         if btn["page"] == mystate.current_page:
+#             mystate.sidebar_btn_status[i] = True
+#             ChkBtnStatusAndAssignColour()
 
 # ---------------------------------------------------
 # 6) Navegação
@@ -559,5 +678,5 @@ elif st.session_state.current_page == "Mapa de Assentamento":
     mapa_Assentamentos()
 
 elif st.session_state.current_page == "Sobre":
-    st.title("").markdown("## Sobre")
+    # st.title("").markdown("## Sobre")
     sobre()

@@ -306,14 +306,34 @@ def obter_estatisticas_reservatorios(geojson_data: dict):
 
 def render_view_reservatorios_map():
     muni_list = ["Todos"] + obter_municipios_reservatorios()
-    col1, col2 = st.columns([10, 3])
+    col1, col2 = st.columns([7, 3])
 
     with col2:
-        st.markdown("### Filtros")
+        st.html("""
+                <p class="paragrafo-com-icone" style="padding-bottom: 0px">
+                    <span class="icone-svg"></span> 
+                    Este mapa exibe os reservatórios monitorados no Ceará, permitindo filtrar
+                    por município e visualizar informações detalhadas como nome, capacidade,
+                    área, ano de construção e o rio associado.
+                </p>
+                """)
+        st.markdown(f"### Filtros")
+        st.html("""<span style='color: #000000 !important'>Do Estado do Ceará </span>
+                """)
         sel = st.selectbox("Município", muni_list, index=0)
         stats = obter_estatisticas_reservatorios(
             carregar_reservatorios(sel if sel != "Todos" else "todos")
         )
+        
+        st.html("""
+                <p class="paragrafo-com-icone" style="padding-bottom: 0px">
+                    <span class="icone-svg"></span> 
+                    Inclui também camadas com limites municipais e assentamentos rurais
+                    para contexto geográfico,oferecendo uma visão integrada dos recursos
+                    hídricos.
+                </p>
+                """)
+        
         st.metric("Reservatórios", stats["total"])
         st.metric("Capacidade total (m³)", f"{stats['cap_total_m³']:.2f}".replace('.', ','))
         st.metric("Área total (ha)", f"{stats['area_ha']:.2f}".replace('.', ','))

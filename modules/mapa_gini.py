@@ -6,6 +6,7 @@ from folium.features import GeoJsonTooltip
 from shapely.geometry import Polygon, MultiPolygon
 from streamlit_folium import st_folium
 from folium.plugins import MiniMap, Fullscreen
+from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
 from public.cores import CORES_GINI
 
 # Cálculo de Gini (fórmula clássica)
@@ -64,7 +65,7 @@ def gerar_grafico_circular(valor, tamanho=100):
         height: var(--tamanho);
         border-radius: 50%;
         background: conic-gradient(
-            {CORES_GINI[5]} 0%,
+            {CORES_GINI[3]} 0%,
             #f5e1df calc(var(--porcentagem) * 100%),
             #fcf1f0 0%
         );
@@ -78,7 +79,7 @@ def gerar_grafico_circular(valor, tamanho=100):
     }}
     </style>
     <div class="grafico" data-value="{valor:.0%}"></div>
-    <p style='text-align:center;color:black;'>Valor absoluto: {valor_abs}</p>
+    <p style='text-align:center;color:black; padding-bottom:0px;'>Valor absoluto: {valor_abs}</p>
     """
     return html
 
@@ -106,7 +107,10 @@ def style_fn(f):
 # Renderização de mapas com clique habilitado
 def render_map(tab, geo_df):
     with tab:
-        m = folium.Map(location=[-5.2, -39.5], zoom_start=8, tiles="cartodbpositron")
+        m = folium.Map(location=[-5.2, -39.5], zoom_start=8, tiles="cartodbpositron", control_scale=True,prefer_canvas=True)
+        if "geo_muni" not in st.session_state:
+            st.session_state.geo_muni = carregar_municipios("todos")
+        adicionar_camada_municipios(m, st.session_state.geo_muni)
         tooltip = GeoJsonTooltip(
             fields=["nome_municipio_original", "gini_area", "cnt"],
             aliases=["Município: ", "Índice de Gini: ", "Imóveis: "],
@@ -133,6 +137,7 @@ def render_map(tab, geo_df):
             <i style='background:#D3D3D3;width:12px;height:12px;float:left;margin-right:4px'></i>Sem dados
             </div>"""
         m.get_root().html.add_child(folium.Element(legend_html))
+        
         MiniMap(toggle_display=True).add_to(m)
         Fullscreen().add_to(m)
         return st_folium(
@@ -190,7 +195,17 @@ def render_view_gini_map(df_props, municipios, clicou=False):
         st.session_state.gini_estadual_clicado = clicou
 
     with col2:
-        st.subheader("Índice de Gini")
+        st.html("""
+                <p class="paragrafo-com-icone" style="font-size: 16px !important;">
+                    <span class="icone-svg"></span> 
+                    Este mapa apresenta o Índice de Gini da distribuição fundiária por município no Ceará,
+                    permitindo identificar o grau de concentração de terras.  
+                    Inclui também um indicador geral do estado.
+                </p>
+                """)
+        st.markdown("### Índice de Gini")
+        st.html("""<span style='color: #000000 !important'>Do Estado do Ceará </span>
+                """)
         ## Exibe gráfico circular do Gini de um municipio específico   
         if clicked_data and not st.session_state.gini_estadual_clicado:
             ## Remove linhas vazias e espaços extras
@@ -198,17 +213,32 @@ def render_view_gini_map(df_props, municipios, clicou=False):
 
             ## Extrai os valores
             municipio = lines[1] if len(lines) > 1 else None
-            gini_mun_str = lines[3].replace(",", ".")
-            gini_mun = float(gini_mun_str) if gini_mun_str else None
-            st.markdown(f"<p style='text-align: center; color:black;'>{municipio}</p>", unsafe_allow_html=True)
-            if gini_mun is not None:
-                st.markdown(gerar_grafico_circular(gini_mun, 150), unsafe_allow_html=True)
-                if st.button("Mostrar Gini Estadual Completo", key="mostrar_gini_estadual_completo", use_container_width=True):
-                    st.session_state.gini_estadual_clicado = True
-                    st.rerun()
+            municipios_unicos = geo_with['nome_municipio_original'].unique().tolist()
+            if municipio in municipios_unicos:
+                gini_mun_str = lines[3].replace(",", ".")
+                gini_mun = float(gini_mun_str) if gini_mun_str else None
+                st.markdown(f"<p style='text-align: center; color:black;'>{municipio}</p>", unsafe_allow_html=True)
+                if gini_mun is not None:
+                    st.markdown(gerar_grafico_circular(gini_mun, 150), unsafe_allow_html=True)
+                    if st.button("Mostrar Gini Estadual Completo", key="mostrar_gini_estadual_completo", use_container_width=True):
+                        st.session_state.gini_estadual_clicado = True
+                        st.rerun()
+            else:
+                st.markdown(gerar_grafico_circular(state_gini, 180), unsafe_allow_html=True)
+                st.session_state.gini_estadual_clicado = False
         else:
-            st.markdown(gerar_grafico_circular(state_gini, 150), unsafe_allow_html=True)
+            st.markdown(gerar_grafico_circular(state_gini, 180), unsafe_allow_html=True)
             st.session_state.gini_estadual_clicado = False
+
+
+        st.html("""
+                <p class="paragrafo-com-icone" style="font-size: 16px !important;">
+                    <span class="icone-svg"></span> 
+                    As cores indicam faixas de desigualdade, e o usuário pode clicar 
+                    sobre um município para visualizar seu valor específico em destaque,
+                    além de consultar rankings por região administrativa.  
+                </p>
+                """)
 
         st.subheader("Gini por Região Administrativa")
         regioes = gini_with_filt["regiao_administrativa"].unique().tolist()

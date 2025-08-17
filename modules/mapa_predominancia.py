@@ -8,6 +8,7 @@ from typing import TypedDict
 from folium.plugins import MiniMap, Fullscreen
 
 from streamlit_folium import st_folium
+from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
 from public.cores import CORES 
 
 
@@ -99,12 +100,17 @@ def criar_mapa_contextual(
         "Sem Registros": "#cccccc",
     }
     
-    mapa = folium.Map(location=[-5.4984, -39.3200], zoom_start=7)
-    
+    mapa = folium.Map(
+        location=[-5.4984, -39.3200], 
+        zoom_start=7,
+        control_scale=True,
+    )
+    if "geo_muni" not in st.session_state:
+        st.session_state.geo_muni = carregar_municipios("todos")
     # Adiciona contorno dos municípios se fornecido
     if contorno_municipios is not None:
         folium.GeoJson(
-            contorno_municipios,
+            st.session_state.geo_muni,
             style_function=lambda x: {"fillOpacity": 0, "color": "#888", "weight": 3},
             tooltip=folium.GeoJsonTooltip(fields=["nome_municipio"], aliases=["Município"]),
             name="Limite dos Municípios"
@@ -129,6 +135,7 @@ def criar_mapa_contextual(
                 name=f"Mapa de Calor: {categoria_heatmap}"
             ).add_to(mapa)
     else:
+        adicionar_camada_municipios(mapa, st.session_state.geo_muni)
         # Mapa Coroplético
         folium.GeoJson(
             gdf,
@@ -204,19 +211,26 @@ def render_view_predominancia_map(dados_fundiarios,contorno_municipios):
     col1, col2 = st.columns([7, 3])
 
     with col2:
-        with st.expander("Sobre o Mapa:"):
-            st.markdown("""
-                        Este mapa tem a função de indicar qual categoria fundiária é predominante em cada município do Ceará com base nos dados do **IDACE**. Ele permite compreender a estrutura fundiária predominante de forma simples e visual.
-- **Cores dos municípios**: Cada município é colorido de acordo com a categoria dominante de imóveis rurais (a que possui o maior número de ocorrências no município).  
-- **Ao passar o mouse**:  
-  ◦ Exibe o **nome do município**.  
-- **Tipo dominante**: indica se a maior parte dos imóveis rurais é:  
-    - **Pequena < 1 Módulo Fiscal** (minifúndios)  
-    - **Pequena Propriedade** (entre 1 e 4 Módulos Fiscais)  
-    - **Média Propriedade**  
-    - **Grande Propriedade**  
-- **Painel à direita**: Mostra a quantidade de imóveis por categoria para o município selecionado e o **total geral**.  
-                        """)
+#         with st.expander("Sobre o Mapa:"):
+#             st.markdown("""
+#                         Este mapa tem a função de indicar qual categoria fundiária é predominante em cada município do Ceará com base nos dados do **IDACE**. Ele permite compreender a estrutura fundiária predominante de forma simples e visual.
+# - **Cores dos municípios**: Cada município é colorido de acordo com a categoria dominante de imóveis rurais (a que possui o maior número de ocorrências no município).  
+# - **Ao passar o mouse**:  
+#   ◦ Exibe o **nome do município**.  
+# - **Tipo dominante**: indica se a maior parte dos imóveis rurais é:  
+#     - **Pequena < 1 Módulo Fiscal** (minifúndios)  
+#     - **Pequena Propriedade** (entre 1 e 4 Módulos Fiscais)  
+#     - **Média Propriedade**  
+#     - **Grande Propriedade**  
+# - **Painel à direita**: Mostra a quantidade de imóveis por categoria para o município selecionado e o **total geral**.  
+#                         """)
+
+        st.html("""
+                <p class="paragrafo-com-icone">
+                    <span class="icone-svg"></span> 
+                    Este mapa identifica a categoria fundiária predominante em cada município do Ceará.
+                </p>
+                """)
         
         # Controles do mapa
         modo_mapa = st.radio(
@@ -225,6 +239,12 @@ def render_view_predominancia_map(dados_fundiarios,contorno_municipios):
             index=0
         )
         
+        st.html("""
+                <p class="paragrafo-com-icone">
+                    <span class="icone-svg"></span> 
+                    É possível visualizar tanto a predominância por cor, quanto a intensidade de cada categoria (mapa de calor).
+                </p>
+                """)
         categoria_heatmap = None
         if modo_mapa == "Mapa de Calor":
             categoria_heatmap = st.selectbox("Categoria para Mapa de Calor:", categorias)

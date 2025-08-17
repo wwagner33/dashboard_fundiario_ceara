@@ -40,12 +40,33 @@ def render_view_mapa_interativo():
         st.error("Erro ao carregar regiões.")
         st.stop()
 
-    col1, col2 = st.columns([8,2])
+    col1, col2 = st.columns([8,3])
 
-    regiao = col2.selectbox("Região administrativa", regioes)
+    col2.html("""
+                <p class="paragrafo-com-icone">
+                    <span class="icone-svg"></span> 
+                    Este mapa apresenta a distribuição das propriedades rurais por categoria de 
+                    tamanho (Pequena < 1 MF, Pequena, Média e Grande).
+                </p>
+                """)
+    
+    col2.markdown("### Filtros")
+    col2.html("""<span style='color: #000000 !important'>Do Estado do Ceará </span>
+                """)
+    col2.html("""
+                <p class="paragrafo-com-icone" style="padding-bottom: 16px">
+                    <span class="icone-svg"></span> 
+                    O sistema é capaz de filtrar por Estado, Município ou Região Administrativa. 
+                    Exibindo tanto a quantidade de propriedades quanto a proporção de área ocupada
+                    por cada categoria, conforme o recorte desejado.
+                </p>
+                """)
+
+
+    regiao = col2.selectbox("Selecione a Região administrativa", regioes)
 
     municipios = fetch_municipios(regiao)
-    municipio = col2.selectbox("Município", ["(toda a região)"] + municipios)
+    municipio = col2.selectbox("Selecione o Município", ["(toda a região)"] + municipios)
 
     try:
         if municipio == "(toda a região)":
@@ -124,6 +145,6 @@ def render_view_mapa_interativo():
             #Adicionando minimap
             MiniMap(toggle_display=True).add_to(m)
             Fullscreen().add_to(m)
-            st_folium(m, width=1200, height=700, returned_objects=[],use_container_width=True)
+            st_folium(m, width=1000, height=700, returned_objects=[],use_container_width=True)
         
     st.stop()   

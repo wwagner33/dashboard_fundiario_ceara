@@ -242,10 +242,19 @@ def render_view_assentamento_map():
     tipos_assentamento = ["Todos", "Estadual", "Federal"]
 
     # Corpo principal
-    col1, col2 = st.columns([12, 4])
+    col1, col2 = st.columns([7, 3])
 
     with col2:  
+        st.html("""
+                <p class="paragrafo-com-icone" style="padding-bottom: 0px">
+                    <span class="icone-svg"></span> 
+                    Este mapa exibe a localização geográfica dos assentamentos rurais no Ceará,
+                    diferenciando-os por tipo (Estadual ou Federal) e permitindo filtrar por município.
+                </p>
+                """)
         st.markdown(f"### Filtros")
+        st.html("""<span style='color: #000000 !important'>Do Estado do Ceará </span>
+                """)
 
         # Filtro por município
         municipio_selecionado = st.selectbox(
@@ -260,8 +269,14 @@ def render_view_assentamento_map():
             tipos_assentamento,
             index=0
         )
-        
-        st.markdown("---")
+        st.html("""
+                <p class="paragrafo-com-icone" style="padding-bottom: 0px">
+                    <span class="icone-svg"></span> 
+                    Cada assentamento contém informações detalhadas,como número de famílias,
+                    área e forma de obtenção,métricas gerais sobre quantidade e extensão das áreas.
+                </p>
+                """)
+        # st.markdown("---")
         st.markdown("### Informações")
         
         # Carrega os dados com base nos filtros selecionados
