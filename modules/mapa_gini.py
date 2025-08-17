@@ -64,7 +64,7 @@ def gerar_grafico_circular(valor, tamanho=100):
         height: var(--tamanho);
         border-radius: 50%;
         background: conic-gradient(
-            {CORES_GINI[5]} 0%,
+            {CORES_GINI[3]} 0%,
             #f5e1df calc(var(--porcentagem) * 100%),
             #fcf1f0 0%
         );
@@ -78,7 +78,7 @@ def gerar_grafico_circular(valor, tamanho=100):
     }}
     </style>
     <div class="grafico" data-value="{valor:.0%}"></div>
-    <p style='text-align:center;color:black;'>Valor absoluto: {valor_abs}</p>
+    <p style='text-align:center;color:black; padding-bottom:0px;'>Valor absoluto: {valor_abs}</p>
     """
     return html
 
@@ -190,7 +190,17 @@ def render_view_gini_map(df_props, municipios, clicou=False):
         st.session_state.gini_estadual_clicado = clicou
 
     with col2:
-        st.subheader("Índice de Gini")
+        st.html("""
+                <p class="paragrafo-com-icone" style="font-size: 16px !important;">
+                    <span class="icone-svg"></span> 
+                    Este mapa apresenta o Índice de Gini da distribuição fundiária por município no Ceará,
+                    permitindo identificar o grau de concentração de terras.  
+                    Inclui também um indicador geral do estado.
+                </p>
+                """)
+        st.markdown("### Índice de Gini")
+        st.html("""<span style='color: #000000 !important'>Do Estado do Ceará </span>
+                """)
         ## Exibe gráfico circular do Gini de um municipio específico   
         if clicked_data and not st.session_state.gini_estadual_clicado:
             ## Remove linhas vazias e espaços extras
@@ -207,8 +217,18 @@ def render_view_gini_map(df_props, municipios, clicou=False):
                     st.session_state.gini_estadual_clicado = True
                     st.rerun()
         else:
-            st.markdown(gerar_grafico_circular(state_gini, 150), unsafe_allow_html=True)
+            st.markdown(gerar_grafico_circular(state_gini, 180), unsafe_allow_html=True)
             st.session_state.gini_estadual_clicado = False
+
+
+        st.html("""
+                <p class="paragrafo-com-icone" style="font-size: 16px !important;">
+                    <span class="icone-svg"></span> 
+                    As cores indicam faixas de desigualdade, e o usuário pode clicar 
+                    sobre um município para visualizar seu valor específico em destaque,
+                    além de consultar rankings por região administrativa.  
+                </p>
+                """)
 
         st.subheader("Gini por Região Administrativa")
         regioes = gini_with_filt["regiao_administrativa"].unique().tolist()
