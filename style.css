@@ -145,7 +145,7 @@ h4 {
 /* 9. Inputs, selects e áreas de texto */
 .stTextInput > div > div > input,
 .stSelectbox > div > div > div > div {
-  background-color: #f9f4f5 !important;
+  background-color: #E1B77E !important;
   color: #000000 !important;
   font-size: 0.9rem;
   font-weight: 700;
@@ -153,6 +153,19 @@ h4 {
   border-radius: 4px !important;
   font-family: "Raleway" !important;
 }
+
+/* div[data-baseweb="select"] > div { deixar mais circular a borda das select de opções
+  border-radius: 20px;
+} */
+
+li[role="option"] {
+  background-color: #00824110 !important;
+}
+
+li[role="option"]:hover {
+  background-color: #56a7b260 !important;
+}
+
 
 /* tab não selecionda */
 /* .stTabs [tabindex="-1"]{
@@ -209,7 +222,7 @@ footer,
 }
 
 .stSelectbox div > div {
-  background-color: #f9f4f5;
+  background-color: #E1B77E;
 }
 
 .stButton > button {
