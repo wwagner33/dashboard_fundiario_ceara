@@ -213,14 +213,19 @@ def render_view_gini_map(df_props, municipios, clicou=False):
 
             ## Extrai os valores
             municipio = lines[1] if len(lines) > 1 else None
-            gini_mun_str = lines[3].replace(",", ".")
-            gini_mun = float(gini_mun_str) if gini_mun_str else None
-            st.markdown(f"<p style='text-align: center; color:black;'>{municipio}</p>", unsafe_allow_html=True)
-            if gini_mun is not None:
-                st.markdown(gerar_grafico_circular(gini_mun, 150), unsafe_allow_html=True)
-                if st.button("Mostrar Gini Estadual Completo", key="mostrar_gini_estadual_completo", use_container_width=True):
-                    st.session_state.gini_estadual_clicado = True
-                    st.rerun()
+            municipios_unicos = geo_with['nome_municipio_original'].unique().tolist()
+            if municipio in municipios_unicos:
+                gini_mun_str = lines[3].replace(",", ".")
+                gini_mun = float(gini_mun_str) if gini_mun_str else None
+                st.markdown(f"<p style='text-align: center; color:black;'>{municipio}</p>", unsafe_allow_html=True)
+                if gini_mun is not None:
+                    st.markdown(gerar_grafico_circular(gini_mun, 150), unsafe_allow_html=True)
+                    if st.button("Mostrar Gini Estadual Completo", key="mostrar_gini_estadual_completo", use_container_width=True):
+                        st.session_state.gini_estadual_clicado = True
+                        st.rerun()
+            else:
+                st.markdown(gerar_grafico_circular(state_gini, 180), unsafe_allow_html=True)
+                st.session_state.gini_estadual_clicado = False
         else:
             st.markdown(gerar_grafico_circular(state_gini, 180), unsafe_allow_html=True)
             st.session_state.gini_estadual_clicado = False
