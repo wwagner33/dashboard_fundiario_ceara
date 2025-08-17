@@ -518,49 +518,115 @@ if "current_page" not in st.session_state:
 
 # if st.session_state.current_page != 'Inicio':
     # st.logo("./assets/Frame 18.png", size="large")
+import streamlit.components.v1 as components
+
+# Configuração do estado da sessão
+mystate = st.session_state
+if "sidebar_btn_status" not in mystate:
+    mystate.sidebar_btn_status = [False] * 8  # 7 botões na sidebar
+
+# Configurações de cores
+unpressed_colour = "#00824110"    # Cor quando não pressionado
+pressed_colour = "#E1B87EBC"  # Cor quando  pressionado
+
+# # Lista de botões da sidebar
+sidebar_buttons = [
+    {
+        "label": "Início", 
+        "icon": ":material/home:", 
+        "page": "Inicio"
+    },
+    {
+        "label": "Gráficos e Quadros", 
+        "icon": ":material/bar_chart_4_bars:", 
+        "page": "Gráficos"
+    },
+    {
+        "label": "Mapa de Predominância", 
+        "icon": ":material/distance:", 
+        "page": "Mapa de Predominância"
+    },
+    {
+        "label": "Mapa da Malha Fundiária", 
+        "icon": ":material/map_search:", 
+        "page": "Mapa da Malha Fundiária"
+    },
+    {
+        "label": "Mapa de Concentração Fundiária",
+        "icon": ":material/crisis_alert:",
+        "page": "Mapa de Concentração Fundiária"
+    },
+    {
+        "label": "Mapa de Assentamentos",
+        "icon": ":material/globe_location_pin:",
+        "page": "Mapa de Assentamento"
+    },
+    {
+        "label": "Mapa Hidrográfico", 
+        "icon": ":material/water_drop:", 
+        "page": "Mapa Hidrografico"
+    },
+    {
+        "label": "Sobre", 
+        "icon": ":material/info:", 
+        "page": "Sobre"
+    }
+]
+
+# # Função para mudar a cor dos botões
+def ChangeButtonColour(widget_label, prsd_status):
+    btn_bg_colour = pressed_colour if prsd_status else unpressed_colour
+    htmlstr = f"""
+        <script>
+            var elements = window.parent.document.querySelectorAll('button');
+            for (var i = 0; i < elements.length; ++i) {{ 
+                if (elements[i].innerText.includes('{widget_label}')) {{ 
+                    elements[i].style.background = '{btn_bg_colour}';
+                    elements[i].style.color = '#000000';
+                    elements[i].style.border = '1px solid {pressed_colour if prsd_status else '#C5CAE9'}';
+                }}
+            }}
+        </script>
+        """
+    components.html(f"{htmlstr}", height=0, width=0)
+
+# Função para verificar o estado dos botões e atribuir cores
+def ChkBtnStatusAndAssignColour():
+    for i, btn in enumerate(sidebar_buttons):
+        ChangeButtonColour(btn["label"], mystate.sidebar_btn_status[i])
+
+# Callback quando um botão é pressionado
+def btn_pressed_callback(i):
+    # Reseta todos os botões
+    mystate.sidebar_btn_status = [False] * len(sidebar_buttons)
+    # Ativa apenas o botão pressionado
+    mystate.sidebar_btn_status[i] = True
+    # Define a página atual
+    mystate.current_page = sidebar_buttons[i]["page"]
+    # st.rerun()
+
+# # Sidebar
 with st.sidebar:
-    # st.header("")
-    # CSS para ícones Font Awesome
-    if st.button(
-        "Início", use_container_width=True, icon=":material/home:"
-    ):
-        st.session_state.current_page = "Inicio"
-        st.rerun()
-    if st.button(
-        "Gráficos e Quadros", use_container_width=True, icon=":material/bar_chart:"
-    ):
-        st.session_state.current_page = "Gráficos"
-    if st.button(
-        "Mapa de Predominância", use_container_width=True, icon=":material/location_on:"
-    ):
-        st.session_state.current_page = "Mapa de Predominância"
-    if st.button(
-        "Mapa da Malha Fundiária", use_container_width=True, icon=":material/map:"
-    ):
-        st.session_state.current_page = "Mapa da Malha Fundiária"
+    # Cria os botões
+    for i, btn in enumerate(sidebar_buttons):
+        st.button(
+            f"{btn['label']}",
+            icon=btn['icon'],
+            key=f"sidebar_btn_{i}",
+            on_click=btn_pressed_callback,
+            args=(i,),
+            use_container_width=True
+        )
+    
+    # Aplica os estilos aos botões
+    ChkBtnStatusAndAssignColour()
 
-    if st.button(
-        "Mapa de Concentração Fundiária",
-        use_container_width=True,
-        icon=":material/crisis_alert:",
-    ):
-        st.session_state.current_page = "Mapa de Concentração Fundiária"
-
-    if st.button(
-        "Mapa de Assentamentos",
-        use_container_width=True,
-        icon=":material/globe_location_pin:",
-    ):
-        st.session_state.current_page = "Mapa de Assentamento"
-
-    if st.button(
-        "Mapa Hidrográfico", use_container_width=True, icon=":material/water_drop:"
-    ):
-        st.session_state.current_page = "Mapa Hidrografico"
-
-    if st.button("Sobre", use_container_width=True, icon=":material/info:"):
-        st.session_state.current_page = "Sobre"
-
+# Verifica se há uma página atual definida e atualiza o botão correspondente
+# if "current_page" in mystate:
+#     for i, btn in enumerate(sidebar_buttons):
+#         if btn["page"] == mystate.current_page:
+#             mystate.sidebar_btn_status[i] = True
+#             ChkBtnStatusAndAssignColour()
 
 # ---------------------------------------------------
 # 6) Navegação
