@@ -166,17 +166,26 @@ def adicionar_camadas(mapa: folium.Map, geojson_data: dict, tipo_filtrado: str =
             # Determina a cor do marcador baseada no tipo de assentamento
             tipo = props.get('tipo_assentamento', '').capitalize()
             cor_marker = CORES_MARKERS.get(tipo, "#ff7f0e")  # Default laranja
-            
+            circulo_icon = folium.DivIcon(
+                html='<div style="font-size: 12px; color: white; background-color: #FFFFFF; border:0.8px solid black; border-radius: 50%; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center;"></div>'
+            )
+            triangulo_icon = folium.DivIcon(
+                html="""
+                    <svg width="20" height="20" viewBox="0 0 30 30">
+                        <polygon 
+                            points="15,3 27,27 3,27" 
+                            fill="#e5b636" 
+                            stroke="black" 
+                            stroke-width="0.5"
+                        />
+                    </svg>
+                """
+            )
             # Cria marcador com ícone personalizado
             folium.Marker(
                 location=[lat, lon],
                 tooltip=folium.Tooltip(tooltip_content),
-                icon=folium.Icon(
-                    color='white',
-                    icon_color=cor_marker,
-                    icon='home',
-                    prefix='fa'
-                )
+                icon=circulo_icon if tipo == 'Federal' else triangulo_icon
             ).add_to(grupos[tipo])
         except (KeyError, IndexError, TypeError) as e:
             print(f"Erro ao processar feature: {e}")
