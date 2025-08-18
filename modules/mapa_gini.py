@@ -65,7 +65,7 @@ def gerar_grafico_circular(valor, tamanho=100):
         height: var(--tamanho);
         border-radius: 50%;
         background: conic-gradient(
-            {CORES_GINI[3]} 0%,
+            {CORES_GINI[2]} 0%,
             #f5e1df calc(var(--porcentagem) * 100%),
             #fcf1f0 0%
         );
@@ -196,11 +196,14 @@ def render_view_gini_map(df_props, municipios, clicou=False):
 
     with col2:
         st.html("""
-                <p class="paragrafo-com-icone" style="font-size: 16px !important;">
+                <p class="paragrafo-com-icone" style="font-size: 14px !important;">
                     <span class="icone-svg"></span> 
                     Este mapa apresenta o Índice de Gini da distribuição fundiária por município no Ceará,
                     permitindo identificar o grau de concentração de terras.  
-                    Inclui também um indicador geral do estado.
+                    Inclui também um indicador geral do estado. </br>
+                    As áreas em amarelo são regiões onde o número de imóveis é inferior a 100, portanto,
+                    abaixo do número mínimo de imóveis necessário para cálculo correto do Gini Fundiário. </br>
+                    Os municípios em branco, no mapa, são correspondentes às áreas áreas rurais ainda não regularizadas.
                 </p>
                 """)
         st.markdown("### Índice de Gini")
@@ -242,8 +245,8 @@ def render_view_gini_map(df_props, municipios, clicou=False):
 
         st.subheader("Gini por Região Administrativa")
         regioes = gini_with_filt["regiao_administrativa"].unique().tolist()
-        regiao_selecionada = st.selectbox("Filtrar por Região:", options=["Todas"] + sorted(regioes), index=0)
-        if regiao_selecionada != "Todas":
+        regiao_selecionada = st.selectbox("Filtrar por Região:", options=["[TODAS]"] + sorted(regioes), index=0)
+        if regiao_selecionada != "[TODAS]":
             df_tabela = gini_with_filt[gini_with_filt["regiao_administrativa"] == regiao_selecionada]
         else:
             df_tabela = gini_with_filt
@@ -255,7 +258,7 @@ def render_view_gini_map(df_props, municipios, clicou=False):
                 "gini_area": "Gini",
                 "cnt": "Qtd. Lotes",
             })
-            .sort_values("Gini", ascending=False),
+            .sort_values("Município", ascending=True),
             use_container_width=True, hide_index=True, height=600
         )    
     return clicou

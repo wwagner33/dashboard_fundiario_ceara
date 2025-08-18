@@ -46,7 +46,8 @@ def render_view_mapa_interativo():
                 <p class="paragrafo-com-icone">
                     <span class="icone-svg"></span> 
                     Este mapa apresenta a distribuição das propriedades rurais por categoria de 
-                    tamanho (Pequena < 1 MF, Pequena, Média e Grande).
+                    tamanho (Pequena < 1 MF, Pequena, Média e Grande). </br></br>
+                    As regiões em branco no mapa, são correspondentes às áreas urbanas ou áreas rurais ainda não regularizadas.
                 </p>
                 """)
     
@@ -132,8 +133,8 @@ def render_view_mapa_interativo():
                 'fillColor': cor, 'color': '#000', 'weight': 0.5, 'fillOpacity': 0.6
             },
             tooltip=folium.GeoJsonTooltip(
-                fields=['imovel','data_criacao_lote', 'numero_incra','numero_lote', 'area','situacao_juridica','regiao_administrativa','nome_municipio_original', 'categoria'],
-                aliases=['Nome:','Data de Criação:','N° Incra:','N° Lote:','Área (ha):','Situação Jurídica:','Região Administrativa:','Município:', 'Categoria:'],
+                fields=['imovel', 'nome_proprietario' ,'data_criacao_lote', 'numero_incra','numero_lote', 'area','situacao_juridica','regiao_administrativa','nome_municipio_original', 'categoria'],
+                aliases=['Nome:', 'Nome do Proprietário:','Data de Criação:','N° Incra:','N° Lote:','Área (ha):','Situação Jurídica:','Região Administrativa:','Município:', 'Categoria:'],
                 localize=True
             )
         ).add_to(fg)
