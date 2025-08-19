@@ -72,14 +72,14 @@ def gerar_grafico_circular(valor, tamanho=100):
         display: grid; place-items: center; margin: 10px auto;
     }}
     .grafico::before {{
-        content: "{valor_str}";
+        content: "{valor_abs}";
         display: grid; place-items: center;
         width: 70%; height: 70%; background: white; border-radius: 50%;
         color: #0c0906; font-size: {tamanho * 0.15}px;
     }}
     </style>
     <div class="grafico" data-value="{valor:.0%}"></div>
-    <p style='text-align:center;color:black; padding-bottom:0px;'>Valor absoluto: {valor_abs}</p>
+    <p style='text-align:center;color:black; padding-bottom:0px; margin-right: auto;'>Percentual:</br> {valor:.2%}     </p>
     """
     return html
 

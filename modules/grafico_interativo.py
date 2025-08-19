@@ -147,26 +147,6 @@ def plot_pizza(resultados, titulo, subtitulo) -> plt.Figure:
     
     return fig
 
-# @st.cache_data
-# def compute_stats_df(df: pd.DataFrame) -> pd.DataFrame:
-#     stats = df["area"].describe()
-#     stats = stats.rename(
-#         {
-#             "count": "Contagem",
-#             "mean": "Média",
-#             "std": "Desvio Padrão",
-#             "min": "Mínimo",
-#             "25%": "1º Quartil",
-#             "50%": "Mediana",
-#             "75%": "3º Quartil",
-#             "max": "Máximo",
-#         }
-#     )
-#     return (
-#         stats.to_frame(name="Área (ha)")
-#         .reset_index()
-#         .rename(columns={"index": "Estatística"})
-#     )
 
 @st.cache_data
 def plot_area_pizza(df: pd.DataFrame, titulo: str) -> plt.Figure:
@@ -250,9 +230,92 @@ def plot_area_pizza(df: pd.DataFrame, titulo: str) -> plt.Figure:
 
     return fig
 
+# Função alternativa usando a mesma estrutura do seu gráfico original
+@st.cache_data
+def plot_cadastro_pizza_estilo_original(df: pd.DataFrame, titulo: str = "Situação de Cadastro de Imóveis", df_original:pd.DataFrame = None) -> plt.Figure:
+    """
+    Versão mantendo o estilo do seu gráfico original de áreas
+    """
+    
+    total_cadastrados = len(df) if len(df_original) < len(df) else len(df_original)
+    
+    
+    
+    total_estimado = 312000
+    restante = total_estimado - total_cadastrados
+    
+    # Dados para o gráfico
+    categorias = ['Imóveis Cadastrados', 'A Cadastrar']
+    valores = [total_cadastrados, restante]
+    
+    # Mapeamento de cores
+    color_map = {
+        "Imóveis Cadastrados": "#1f77b4",
+        "A Cadastrar": "#ff7f0e"
+    }
+    
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Ordena as categorias
+    categorias_ordenadas = categorias
+    valores_ordenados = valores
+    cores = [color_map[cat] for cat in categorias_ordenadas]
+
+    # Plot do gráfico de pizza
+    wedges, texts, autotexts = ax.pie(
+        valores_ordenados,
+        labels=None,
+        colors=cores,
+        startangle=90,
+        autopct='%1.1f%%',
+        pctdistance=0.75,
+        textprops={'fontsize': 12}
+    )
+    
+    # Ajusta o estilo dos percentuais
+    for autotext in autotexts:
+        autotext.set_color('white')
+        autotext.set_fontweight('bold')
+        autotext.set_fontsize(11)
+    
+    # Título
+    ax.set_title(
+        f"Situação de Cadastro de Imóveis\nTotal Estimado: {total_estimado:,} imóveis", 
+        fontsize=16, 
+        pad=20,
+        fontweight='bold'
+    )
+    
+    # Adiciona legenda com valores absolutos
+    percentuais = {cat: (val/total_estimado)*100 for cat, val in zip(categorias_ordenadas, valores_ordenados)}
+    labels_legenda = [
+        f"{cat}\n{val:,.0f} imóveis ({percentuais[cat]:.1f}%)" 
+        for cat, val in zip(categorias_ordenadas, valores_ordenados)
+    ]
+    
+    ax.legend(
+        wedges,
+        labels_legenda,
+        title="Situação do Cadastro",
+        loc="center left",
+        bbox_to_anchor=(1, 0, 0.5, 1),
+        fontsize=12,
+        title_fontsize=13
+    )
+    
+    plt.tight_layout()
+    plt.subplots_adjust(right=0.7)
+
+    return fig
+
+
 def render_view_grafico_interativo(df_class):
+    
+    if 'selected_tab' not in st.session_state:
+        st.session_state.selected_tab = "Gráfico de Pizza"
+    
     col1, col2 = st.columns([6, 4])
-    tab1, tab2 = col1.tabs(["Gráfico de Pizza","Gráfico de Barras"])
+    tab1, tab2, tab3 = col1.tabs(["Gráfico de Pizza","Gráfico de Barras", "Gráfico de Geocadastro"])
     col2.subheader("").markdown("### Parâmetros de Busca:")
     co2_1, co2_2 = col2.columns([1, 1])
     opcao = co2_1.selectbox(
@@ -263,9 +326,12 @@ def render_view_grafico_interativo(df_class):
     if opcao != "Todo o Estado":
         col = "nome_municipio" if opcao == "Municípios" else "regiao_administrativa"
         entidade = co2_2.selectbox(f"{opcao}:", sorted(df_class[col].dropna().unique()))
-
+    
+    df_original = df_class
     df_filtrado = filtrar_dados(df_class, opcao, entidade)
     resultados, total = classificar_propriedades(df_filtrado)
+    if 'selected_tab' not in st.session_state:
+        st.session_state.selected_tab = "Gráfico de Pizza"
 
     def preencher_tabs():
         fig_pizza = plot_pizza(
@@ -284,7 +350,6 @@ def render_view_grafico_interativo(df_class):
         tab1.pyplot(fig_pizza)
         tab2.pyplot(fig_barra)
         
-
         col2.subheader("").markdown("### Classificação de Propriedades")
         col2.html(f"""
                   <p id="op-ent"><b>{opcao}</b> - {entidade} </p>
@@ -293,6 +358,13 @@ def render_view_grafico_interativo(df_class):
         
         col2.subheader("").markdown("#### Distribuição de Áreas por Tipo de Propriedade")
         col2.pyplot(fig_area_pizza)
+        with tab3:
+            fig_cadastro_pizza = plot_cadastro_pizza_estilo_original(
+                df_filtrado, 
+                f"{opcao} - {entidade}" if opcao != "Todo o Estado" else "Todo o Estado",
+                df_class
+            )
+            st.pyplot(fig_cadastro_pizza)
 
     if resultados:
         col1.markdown("##### Dados atualizados em 24/02/2025")
