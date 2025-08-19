@@ -87,7 +87,7 @@ def load_csv_data(base_folder: str) -> pd.DataFrame:
             'imovel','data_criacao_lote', 'numero_incra',
             'numero_lote', 'area','situacao_juridica','regiao_administrativa',
             'nome_municipio_original', 'distrito', 'localidade', 
-            'categoria', 'geometry', 'nome_municipio','modulo_fiscal','lote_id'
+            'categoria', 'geometry', 'nome_municipio','modulo_fiscal','lote_id', 'nome_proprietario'
         ])
         
         # Conversão de tipos segura
