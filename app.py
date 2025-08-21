@@ -82,7 +82,7 @@ def load_once():
 
 
 df_all, df_class, df_inter, df_ctx, counts = load_once()
-dados_fundiarios = load_data("")
+dados_fundiarios = df_all #load_data("")
 contorno_municipios = load_municipios("")
 
 
