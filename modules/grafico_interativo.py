@@ -315,7 +315,8 @@ def render_view_grafico_interativo(df_class):
         st.session_state.selected_tab = "Gráfico de Pizza"
     
     col1, col2 = st.columns([6, 4])
-    tab1, tab2, tab3 = col1.tabs(["Gráfico de Pizza","Gráfico de Barras", "Gráfico de Geocadastro"])
+    tab1, tab2 = col1.tabs(["Gráfico de Pizza","Gráfico de Barras"])
+    # tab1, tab2, tab3 = col1.tabs(["Gráfico de Pizza","Gráfico de Barras", "Gráfico de Geocadastro"])
     col2.subheader("").markdown("### Parâmetros de Busca:")
     co2_1, co2_2 = col2.columns([1, 1])
     opcao = co2_1.selectbox(
@@ -358,13 +359,13 @@ def render_view_grafico_interativo(df_class):
         
         col2.subheader("").markdown("#### Distribuição de Áreas por Tipo de Propriedade")
         col2.pyplot(fig_area_pizza)
-        with tab3:
-            fig_cadastro_pizza = plot_cadastro_pizza_estilo_original(
-                df_filtrado, 
-                f"{opcao} - {entidade}" if opcao != "Todo o Estado" else "Todo o Estado",
-                df_class
-            )
-            st.pyplot(fig_cadastro_pizza)
+        # with tab3:
+        #     fig_cadastro_pizza = plot_cadastro_pizza_estilo_original(
+        #         df_filtrado, 
+        #         f"{opcao} - {entidade}" if opcao != "Todo o Estado" else "Todo o Estado",
+        #         df_class
+        #     )
+        #     st.pyplot(fig_cadastro_pizza)
 
     if resultados:
         col1.markdown("##### Dados atualizados em 24/02/2025")
