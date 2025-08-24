@@ -7,8 +7,9 @@
 
 import streamlit as st
 from streamlit_folium import st_folium
-import folium
+#import folium
 from typing import TypedDict
+import os
 
 
 class DebugInfo(TypedDict):
@@ -32,7 +33,7 @@ from modules import (
 
 
 # Configurações
-DATA_SERVICE_URL = st.secrets.get("DATA_SERVICE_URL", "http://localhost:8000")
+DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL") #st.secrets.get("DATA_SERVICE_URL", "http://localhost:8000")
 # MAX_FEATURES = 500  # Limite para features simultâneas
 
 st.set_page_config(

@@ -368,7 +368,7 @@ def render_view_grafico_interativo(df_class):
         #     st.pyplot(fig_cadastro_pizza)
 
     if resultados:
-        col1.markdown("##### Dados atualizados em 24/02/2025")
+        # col1.markdown("##### Dados atualizados em 24/02/2025")
         df_tab = pd.DataFrame(
             list(resultados.items()), columns=["Categoria", "Quantidade"]
         )
