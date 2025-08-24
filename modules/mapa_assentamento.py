@@ -9,7 +9,7 @@ import math
 
 from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
 
-DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000")
+DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL")
 
 
 CORES_ASSENTAMENTOS = {

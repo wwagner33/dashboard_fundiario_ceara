@@ -18,13 +18,18 @@ import json
 CENTRO_CEARA = [-5.2, -39.0]
 ZOOM_PADRAO = 8
 COR_RESERVATORIO = "#006994"
-COR_ASSENTAMENTO = "#e67e22"
+# COR_ASSENTAMENTO = "#e67e22"
+CORES_ASSENTAMENTOS = {
+    "Estadual": "#ff7f0e",  # Laranja
+    "Federal": "#1f77b4",   # Azul
+}
+
 COR_MUNICIPIO = "#000000"  # cor da borda
 
 
 # Configuração ajustável da API
-DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000")
-REQUEST_TIMEOUT = 30  # segundos
+DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL")
+REQUEST_TIMEOUT = 120  # segundos
 
 # --- Helpers ---
 
@@ -61,18 +66,6 @@ def _fetch_from_api(endpoint: str, params: Optional[Dict] = None) -> Any:
                 return json.load(f)
         st.error(f"Erro ao acessar endpoint {endpoint}: {str(e)}")
         raise
-# @st.cache_data(ttl=3600)
-# def _get_geojson(endpoint: str, municipio: str = "todos") -> Optional[dict]:
-
-#     base = f"http://localhost:8000/{endpoint}"
-#     params = {} if municipio.lower() == "todos" else {"municipio": municipio}
-#     try:
-#         resp = requests.get(base, params=params, timeout=30)
-#         resp.raise_for_status()
-#         return resp.json()
-#     except requests.exceptions.RequestException as e:
-#         st.error(f"Erro ao carregar {endpoint}: {e}")
-#         return None
 
 @st.cache_data(ttl=3600)
 def carregar_reservatorios(municipio: str = "todos") -> Optional[dict]:
@@ -108,10 +101,87 @@ def criar_mapa_base() -> folium.Map:
     return folium.Map(
         location=CENTRO_CEARA,
         zoom_start=ZOOM_PADRAO,
-        tiles="cartodbpositron",
+        tiles="cartodbpositron", 
         control_scale=True,
         prefer_canvas=True
     )
+
+def adicionar_camadas_assentamentos(mapa: folium.Map, geojson_data: dict):
+    if not geojson_data or not geojson_data.get("features"):
+        return
+
+    # Separar assentamentos por tipo
+    assentamentos_estaduais = {
+        "type": "FeatureCollection",
+        "features": [feat for feat in geojson_data['features'] 
+                    if feat.get('properties', {}).get('tipo_assentamento') == 'estadual']
+    }
+    
+    assentamentos_federais = {
+        "type": "FeatureCollection",
+        "features": [feat for feat in geojson_data['features'] 
+                    if feat.get('properties', {}).get('tipo_assentamento') == 'federal']
+    }
+
+    # Camada Assentamentos Estaduais
+    nome_estadual = (
+        f'<span style="display:inline-block;'
+        f'width:12px;height:12px;background:{CORES_ASSENTAMENTOS["Estadual"]};'
+        f'margin-right:6px;"></span>Assentamentos Estaduais'
+    )
+    fg_estadual = folium.FeatureGroup(name=nome_estadual, overlay=True)
+
+    folium.GeoJson(
+        assentamentos_estaduais,
+        style_function=lambda ft: {
+            "fillColor": CORES_ASSENTAMENTOS["Estadual"],
+            "color": "#000000",
+            "weight": 0.5,
+            "fillOpacity": 0.5
+        },
+        tooltip=folium.GeoJsonTooltip(
+            fields=[
+                'cd_sipra', 'nome_assentamento', 'nome_municipio_original',
+                'num_familias', 'forma_obtecao', 'area', 'perimetro'
+            ],
+            aliases=[
+                'SIPRA:', 'Nome:', 'Município:',
+                'Famílias:', 'Forma de Obtenção:', 'Área (ha):', 'Perímetro (m):'
+            ],
+            sticky=True
+        )
+    ).add_to(fg_estadual)
+    fg_estadual.add_to(mapa)
+
+    # Camada Assentamentos Federais
+    nome_federal = (
+        f'<span style="display:inline-block;'
+        f'width:12px;height:12px;background:{CORES_ASSENTAMENTOS["Federal"]};'
+        f'margin-right:6px;"></span>Assentamentos Federais'
+    )
+    fg_federal = folium.FeatureGroup(name=nome_federal, overlay=True)
+
+    folium.GeoJson(
+        assentamentos_federais,
+        style_function=lambda ft: {
+            "fillColor": CORES_ASSENTAMENTOS["Federal"],
+            "color": "#000000",
+            "weight": 0.5,
+            "fillOpacity": 0.5
+        },
+        tooltip=folium.GeoJsonTooltip(
+            fields=[
+                'cd_sipra', 'nome_assentamento', 'nome_municipio_original',
+                'num_familias', 'forma_obtecao', 'area', 'perimetro'
+            ],
+            aliases=[
+                'SIPRA:', 'Nome:', 'Município:',
+                'Famílias:', 'Forma de Obtenção:', 'Área (ha):', 'Perímetro (m):'
+            ],
+            sticky=True
+        )
+    ).add_to(fg_federal)
+    fg_federal.add_to(mapa)
 
 def adicionar_camada_reservatorios(mapa: folium.Map, geojson_data: dict):
     if not geojson_data or not geojson_data.get("features"):
@@ -346,7 +416,9 @@ def render_view_reservatorios_map():
 
         mapa = criar_mapa_base()
         adicionar_camada_municipios(mapa, st.session_state.geo_muni)
-        adicionar_camada_assentamentos(mapa, st.session_state.geo_assent)
+        # adicionar_camada_assentamentos(mapa, st.session_state.geo_assent)
+        
+        adicionar_camadas_assentamentos(mapa, st.session_state.geo_assent)
 
         dados_res = carregar_reservatorios(sel if sel != "Todos" else "todos")
         if dados_res and dados_res.get("features"):
