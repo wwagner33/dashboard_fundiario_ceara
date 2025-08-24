@@ -28,7 +28,7 @@ COR_MUNICIPIO = "#000000"  # cor da borda
 
 
 # Configuração ajustável da API
-DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL")
+DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
 REQUEST_TIMEOUT = 120  # segundos
 
 # --- Helpers ---

@@ -38,8 +38,7 @@ from .mapa_reservatorios import (
 # Version of the modules package
 __version__ = "1.0.0"
 
-# API configuration (can be overridden by users)
-DATA_SERVICE_URL = "http://localhost:8000"
+
 
 __all__ = [
     # Data loading and validation
@@ -58,9 +57,7 @@ __all__ = [
     "preparar_dados", 
     "criar_mapa_contextual",
     
-    # Configuration
-    "DATA_SERVICE_URL",
-    
+   
     # views
     "render_view_predominancia_map",
     "render_view_mapa_interativo",

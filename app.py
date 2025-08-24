@@ -32,9 +32,12 @@ from modules import (
 )
 
 
-# Configurações
-DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL") #st.secrets.get("DATA_SERVICE_URL", "http://localhost:8000")
-# MAX_FEATURES = 500  # Limite para features simultâneas
+# Configuração  da API
+DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
+
+
+REQUEST_TIMEOUT = 120  # segundos
+
 
 st.set_page_config(
     page_title="Dashboard",

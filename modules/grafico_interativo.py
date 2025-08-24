@@ -17,6 +17,7 @@ import streamlit as st
 
 
 
+
 @st.cache_data
 def filtrar_dados(df: pd.DataFrame, scope: str, entidade: str = None) -> pd.DataFrame:
     if scope == "Todo o Estado":

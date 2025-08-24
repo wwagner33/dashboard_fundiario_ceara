@@ -9,7 +9,9 @@ import math
 
 from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
 
-DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL")
+# Configuração ajustável da API
+DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
+REQUEST_TIMEOUT = 120  # segundos
 
 
 CORES_ASSENTAMENTOS = {

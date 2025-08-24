@@ -6,7 +6,7 @@ headless = true
 enableXsrfProtection = false
 runOnSave = true
 address = "0.0.0.0"
-port = 9441
+port = 8501
 fileWatcherType = "auto"
 enableWebsocketCompression = false
 
