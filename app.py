@@ -287,6 +287,9 @@ def landing_page():
                 
                 <span class="titulo">Assessor Jurídico</span>
                 <span class="subtitulo">Ricardo Sá Benevides Magalhães</span>
+                
+                <span class="titulo">Assessoria de Comunicação</span>
+                <span class="subtitulo">Marina Holanda Pinheiro</span>
             </div>
             
             <!-- Terceira Seção (Imagem como link) -->

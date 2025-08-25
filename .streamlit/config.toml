@@ -5,22 +5,22 @@ enableCORS = false
 headless = true
 enableXsrfProtection = false
 runOnSave = true
-address = "0.0.0.0"
-port = 8501
+# address = "0.0.0.0"
+# port = 8501
 fileWatcherType = "auto"
 enableWebsocketCompression = false
+baseUrlPath = "paineis"
 
 [browser]
 gatherUsageStats = false
+# serverAddress = "terrace.virtual.ufc.br"
+
 
 [runner]
 magicEnabled = true
-fastReruns = true
-enumCoercion = "nameAndValue" #"nameOnly"
-
 
 [logger]
-level = "error"
+level = "debug"
 
 
 [theme]
