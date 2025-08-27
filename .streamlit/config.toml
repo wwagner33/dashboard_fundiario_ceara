@@ -20,7 +20,7 @@ gatherUsageStats = false
 magicEnabled = true
 
 [logger]
-level = "debug"
+level = "error"
 
 
 [theme]

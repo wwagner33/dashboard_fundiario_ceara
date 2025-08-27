@@ -288,7 +288,7 @@ def landing_page():
                 <span class="titulo">Assessor Jurídico</span>
                 <span class="subtitulo">Ricardo Sá Benevides Magalhães</span>
                 
-                <span class="titulo">Assessoria de Comunicação</span>
+                <span class="titulo">Assessor de Comunicação</span>
                 <span class="subtitulo">Marina Holanda Pinheiro</span>
             </div>
             
@@ -315,7 +315,7 @@ def landing_page():
             <div>
                 <h3>Equipe TerraCE</h3>
                 <span class="titulo">Coordenadora do Projeto/UFC</span>
-                <span class="subtitulo">Maria Inês Escobar da Coêla</span>
+                <span class="subtitulo">Maria Inês Escobar da Costa Casimiro</span>
 
                 <span class="titulo">Coordenador Técnico de Sistemas/UFC</span>
                 <span class="subtitulo">Wellington Wagner Ferreira Sarmento</span>
