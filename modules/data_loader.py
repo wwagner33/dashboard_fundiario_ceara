@@ -10,6 +10,22 @@ import geopandas as gpd
 import numpy as np
 from typing import Dict, List, Any, Optional
 
+import jwt
+from datetime import datetime, timedelta
+
+JWT_SECRET = st.secrets["JWT_SECRET"]
+JWT_ALGORITHM = "HS256"
+
+
+def create_jwt_token():
+    expiration = datetime.utcnow() + timedelta(minutes=30)
+    payload = {
+        "exp": expiration,
+        "iat": datetime.utcnow(),
+        "sub": "streamlit_app"
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
 # Configuração ajustável da API
 DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
 REQUEST_TIMEOUT = 120  # segundos
@@ -20,10 +36,14 @@ def _fetch_from_api(endpoint: str, params: Optional[Dict] = None) -> Any:
     try:
         st.session_state.setdefault('api_calls', 0)
         st.session_state.api_calls += 1
+
+        token = create_jwt_token()
+        headers = {"Authorization": f"Bearer {token}"}
         
         response = requests.get(
             f"{DATA_SERVICE_URL}/{endpoint}",
             params=params,
+            headers=headers,
             timeout=REQUEST_TIMEOUT
         )
         
@@ -180,13 +200,17 @@ def validate_data(df: pd.DataFrame) -> tuple:
 
 @st.cache_data(ttl=7200)
 def fetch_regioes() -> list[str]:
-    resp = requests.get(f"{DATA_SERVICE_URL}/regioes", timeout=20)
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{DATA_SERVICE_URL}/regioes", headers=headers, timeout=20)
     resp.raise_for_status()
     return resp.json().get("regioes", [])
 
 @st.cache_data(ttl=7200)
 def fetch_municipios(regiao: str) -> list[str]:
-    resp = requests.get(f"{DATA_SERVICE_URL}/municipios", params={"regiao": regiao}, timeout=20)
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{DATA_SERVICE_URL}/municipios", params={"regiao": regiao}, headers=headers, timeout=20)
     if resp.status_code == 404:
         return []
     resp.raise_for_status()
@@ -194,13 +218,18 @@ def fetch_municipios(regiao: str) -> list[str]:
 
 @st.cache_data(ttl=1200)
 def fetch_geojson_por_regiao(regiao: str) -> dict:
-    resp = requests.get(f"{DATA_SERVICE_URL}/geojson", params={"regiao": regiao}, timeout=20)
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{DATA_SERVICE_URL}/geojson", params={"regiao": regiao}, headers=headers, timeout=20)
     resp.raise_for_status()
     return resp.json()
 
 @st.cache_data(ttl=1200)
 def fetch_geojson_por_municipio(municipio: str) -> dict:
-    resp = requests.get(f"{DATA_SERVICE_URL}/geojson", params={"municipio": municipio}, timeout=20)
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = requests.get(f"{DATA_SERVICE_URL}/geojson", params={"municipio": municipio}, headers=headers, timeout=20)
     resp.raise_for_status()
     return resp.json()
 
@@ -209,6 +238,10 @@ def fetch_geojson_limites(municipio: str) -> dict:
     """
     Chama GET /geojson_muni?municipio=YYY e retorna o FeatureCollection do município (limite administrativo).
     """
-    resp = requests.get(f"{DATA_SERVICE_URL}/geojson_muni", params={"municipio": municipio}, timeout=20)
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    
+    resp = requests.get(f"{DATA_SERVICE_URL}/geojson_muni", params={"municipio": municipio}, headers=headers, timeout=20)
     resp.raise_for_status()
     return resp.json()

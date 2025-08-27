@@ -33,7 +33,7 @@ from modules import (
 
 
 # Configuração  da API
-DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
+# DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
 
 
 REQUEST_TIMEOUT = 120  # segundos

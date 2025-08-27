@@ -12,7 +12,8 @@ from typing import Dict, List, Any, Optional
 import os
 import json
 
-
+import jwt
+from datetime import datetime, timedelta
 
 # Configurações padrão
 CENTRO_CEARA = [-5.2, -39.0]
@@ -27,7 +28,24 @@ CORES_ASSENTAMENTOS = {
 COR_MUNICIPIO = "#000000"  # cor da borda
 
 
+
+
+
 # Configuração ajustável da API
+
+
+JWT_SECRET = st.secrets["JWT_SECRET"]
+JWT_ALGORITHM = "HS256"
+def create_jwt_token():
+    expiration = datetime.utcnow() + timedelta(minutes=30)
+    payload = {
+        "exp": expiration,
+        "iat": datetime.utcnow(),
+        "sub": "streamlit_app"
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
 DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
 REQUEST_TIMEOUT = 120  # segundos
 
@@ -39,10 +57,14 @@ def _fetch_from_api(endpoint: str, params: Optional[Dict] = None) -> Any:
     try:
         st.session_state.setdefault('api_calls', 0)
         st.session_state.api_calls += 1
-        
+
+        token = create_jwt_token()
+        headers = {"Authorization": f"Bearer {token}"}
+
         response = requests.get(
             f"{DATA_SERVICE_URL}/{endpoint}",
             params=params,
+            headers=headers,
             timeout=REQUEST_TIMEOUT
         )
         
@@ -82,9 +104,15 @@ def carregar_municipios(municipio: str = "todos") -> Optional[dict]:
 @st.cache_data(ttl=3600)
 def obter_municipios_reservatorios() -> list:
     try:
-        resp = requests.get(f"{DATA_SERVICE_URL}/reservatorios_municipios", timeout=10)
-        resp.raise_for_status()
-        return resp.json().get("municipios", [])
+        token = create_jwt_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        url=f"{DATA_SERVICE_URL}/reservatorios_municipios"
+        response = requests.get(url, headers=headers, timeout=30)
+        
+        # response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.json().get("municipios", [])
     except requests.exceptions.RequestException:
         return []
 

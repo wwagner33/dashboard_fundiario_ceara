@@ -9,6 +9,22 @@ import math
 
 from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
 
+
+import jwt
+from datetime import datetime, timedelta
+
+JWT_SECRET = st.secrets["JWT_SECRET"]
+JWT_ALGORITHM = "HS256"
+
+def create_jwt_token():
+    expiration = datetime.utcnow() + timedelta(minutes=30)
+    payload = {
+        "exp": expiration,
+        "iat": datetime.utcnow(),
+        "sub": "streamlit_app"
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
 # Configuração ajustável da API
 DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
 REQUEST_TIMEOUT = 120  # segundos
@@ -48,8 +64,13 @@ def formatar_valor(valor):
 def carregar_geojson(municipio: str = "todos", tipo: str = "todos", tolerancia: float = 0.001) -> Optional[dict]:
     """Carrega dados GeoJSON da API com filtros"""
     try:
+        token = create_jwt_token()
+        headers = {"Authorization": f"Bearer {token}"}
         url = f"{DATA_SERVICE_URL}/geojson_assentamentos?municipio={municipio}&tipo={tipo}&tolerance={tolerancia}"
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, headers=headers, timeout=30)
+        
+        #url = f"{DATA_SERVICE_URL}/geojson_assentamentos?municipio={municipio}&tipo={tipo}&tolerance={tolerancia}"
+        #response = requests.get(url, timeout=30)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -205,8 +226,11 @@ def adicionar_camadas(mapa: folium.Map, geojson_data: dict, tipo_filtrado: str =
 def obter_municipios() -> list:
     """Obtém lista de municípios da API"""
     try:
+        token = create_jwt_token()
+        headers = {"Authorization": f"Bearer {token}"}
         url = f"{DATA_SERVICE_URL}/assentamentos_municipios"
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, headers=headers, timeout=30)
+        # response = requests.get(url, timeout=10)
         response.raise_for_status()
         return response.json().get("municipios", [])
     except requests.exceptions.RequestException:

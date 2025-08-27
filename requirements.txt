@@ -7,3 +7,4 @@ folium
 matplotlib
 shapely
 requests
+PyJWT
