@@ -290,6 +290,12 @@ def landing_page():
                 
                 <span class="titulo">Assessor de Comunicação</span>
                 <span class="subtitulo">Marina Holanda Pinheiro</span>
+                
+                <span class="titulo">Assessoria de Desenvolvimento Institucional (Adins)</span>
+                <span class="subtitulo">Maria das Graças Farias Pedrosa</span>
+                
+                <span class="titulo">Ouvidoria </span>
+                <span class="subtitulo">Domingos Rocha</span>
             </div>
             
             <!-- Terceira Seção (Imagem como link) -->
