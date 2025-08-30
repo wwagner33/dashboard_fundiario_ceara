@@ -254,7 +254,7 @@ def render_view_gini_map(df_props, municipios, clicou=False):
         if clicked_data and not st.session_state.gini_estadual_clicado:
             lines = [line.strip() for line in clicked_data.split("\n") if line.strip()]
             municipio = lines[1] if len(lines) > 1 else None
-            municipios_unicos = geo_with['nome_municipio_original'].unique().tolist()
+            municipios_unicos = geo_with['nome_municipio'].unique().tolist()
             
             if municipio in municipios_unicos:
                 gini_mun_str = lines[3].replace(",", ".")
