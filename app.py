@@ -121,6 +121,10 @@ def mapa_Assentamentos():
 def mapa_hidrográfico():
     render_view_reservatorios_map()
 
+######################### Mapa de Escolas do Campo #######################
+def mapa_escolas_do_campo():
+    render_view_reservatorios_map() # Substituir
+
 
 ######################### Sobre o projeto  #######################
 def sobre():
@@ -580,6 +584,11 @@ sidebar_buttons = [
         "page": "Mapa Hidrografico"
     },
     {
+        "label": "Mapa Escolas do Campo", 
+        "icon": ":material/school:", 
+        "page": "Mapa Escolas do Campo"
+    },
+    {
         "label": "Sobre", 
         "icon": ":material/info:", 
         "page": "Sobre"
@@ -689,6 +698,14 @@ elif st.session_state.current_page == "Mapa de Assentamento":
         unsafe_allow_html=True,
     )
     mapa_Assentamentos()
+
+elif st.session_state.current_page == "Mapa Escolas do Campo":
+    st.title("").markdown(
+        "## Mapa Escolas do Campo",
+        unsafe_allow_html=True,
+    )
+    mapa_escolas_do_campo()  
+
 
 elif st.session_state.current_page == "Sobre":
     # st.title("").markdown("## Sobre")
