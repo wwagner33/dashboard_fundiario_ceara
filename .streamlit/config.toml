@@ -1,15 +1,19 @@
 [server]
-maxUploadSize = 200
-maxMessageSize = 200
+maxUploadSize = 200 #em MB
+maxMessageSize = 300 #em MB
+maxCacheSize = 2048 #em MB
 enableCORS = false
 headless = true
 enableXsrfProtection = false
 runOnSave = true
-# address = "0.0.0.0"
-# port = 8501
 fileWatcherType = "auto"
 enableWebsocketCompression = false
 baseUrlPath = "paineis"
+
+[client]
+toolbarMode = "viewer"
+showSidebarNavigation = false
+
 
 [browser]
 gatherUsageStats = false
@@ -19,15 +23,23 @@ gatherUsageStats = false
 [runner]
 magicEnabled = true
 
+
 [logger]
 level = "error"
 
 
 [theme]
 base                     = "light"
-primaryColor             = "#00a84a"
+primaryColor             = "#008241"
 backgroundColor          = "#FFFFFF"
 secondaryBackgroundColor = "#FAF5F0"
 textColor                = "#000000"
-font                     = "sans serif"
+font                     = "Maitree"
+
+[[theme.fontFaces]]
+font = "Maitree"
+url = "https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Maitree:wght@200;300;400;500;600;700&display=swap&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap"
+weight = 500
+style = "normal"
+
 

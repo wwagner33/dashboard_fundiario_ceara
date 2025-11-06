@@ -318,7 +318,7 @@ body {
 }
 
 div[data-testid="stSidebarHeader"] {
-  background-color: #008241;
+  background-color: #eff7f3 !important;
 }
 
 div[data-testid="stImageContainer"] {

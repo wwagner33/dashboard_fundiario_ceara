@@ -35,6 +35,10 @@ from .mapa_reservatorios import (
     render_view_reservatorios_map
 )
 
+from .mapa_escolas import (
+    render_view_escolas_map
+)
+
 # Version of the modules package
 __version__ = "1.0.0"
 
@@ -64,5 +68,6 @@ __all__ = [
     "render_view_grafico_interativo",
     "render_view_gini_map",
     "render_view_assentamento_map",
-    "render_view_reservatorios_map"
+    "render_view_reservatorios_map",
+    "render_view_escolas_map"
 ]
