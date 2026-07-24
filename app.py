@@ -247,11 +247,6 @@ def sobre():
 
 ######################### Landing Page  #######################
 def landing_page():
-    # ! Depois de finalizar, retornar
-    if st.button("Acessar a plataforma Terra.Ce"):
-        st.session_state.current_page = "Gráficos"
-        st.rerun()
-    
     with st.container():
         
         # st.image("https://www.idace.ce.gov.br/wp-content/uploads/sites/84/2025/07/368A8108-768x512.jpg", use_container_width=True)

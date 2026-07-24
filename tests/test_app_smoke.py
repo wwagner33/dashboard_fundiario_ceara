@@ -34,19 +34,16 @@ def test_page_renders_without_exception(mocked_miniserver, page):
     assert not at.exception, [str(e) for e in at.exception]
 
 
-def test_landing_page_button_navigates_to_graficos(mocked_miniserver):
+def test_landing_page_nao_tem_botao_de_acesso(mocked_miniserver):
+    # O botão "Acessar a plataforma Terra.Ce" foi removido da landing page:
+    # a navegação deve acontecer só pelos itens do menu lateral.
     at = AppTest.from_file("app.py", default_timeout=30)
     at.run()
     assert at.session_state["current_page"] == "Inicio"
     assert not at.exception
 
-    # Clica no botão "Acessar a plataforma Terra.Ce" da landing page
     botoes = [b for b in at.button if "Acessar a plataforma" in (b.label or "")]
-    assert botoes, "Botão de acesso não encontrado na landing page"
-    botoes[0].click().run()
-
-    assert at.session_state["current_page"] == "Gráficos"
-    assert not at.exception
+    assert not botoes, "Botão de acesso não deveria mais existir na landing page"
 
 
 def test_sidebar_tem_todos_os_botoes_de_navegacao(mocked_miniserver):
