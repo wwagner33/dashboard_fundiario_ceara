@@ -6,3 +6,7 @@ geopandas
 folium
 matplotlib
 shapely
+requests
+anthropic
+PyJWT
+python-dotenv

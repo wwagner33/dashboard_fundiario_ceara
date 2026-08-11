@@ -18,6 +18,7 @@ from modules import (
     criar_mapa_contextual,
     preprocessar_tudo,
     criar_mapa_com_camadas,
+    render_terra_ai,
 )
 
 
@@ -141,7 +142,7 @@ df_all, df_class, df_inter, df_ctx, counts = validate_data(df_raw)
 # 6) Navegação
 # ---------------------------------------------------
 page = st.sidebar.selectbox(
-    "Navegação", ["Gráficos", "Mapa Contextual", "Mapa Interativo"]
+    "Navegação", ["Gráficos", "Mapa Contextual", "Mapa Interativo", "Terra-AI"]
 )
 
 
@@ -156,5 +157,8 @@ if page == "Gráficos":
 elif page == "Mapa Contextual":
    mapa_contextuall()
 
-else:  # Mapa Interativo
+elif page == "Mapa Interativo":
    mapa_interativo()
+
+else:  # Terra-AI
+   render_terra_ai()
