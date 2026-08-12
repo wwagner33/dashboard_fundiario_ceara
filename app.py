@@ -132,11 +132,7 @@ st.title("ccTerra::Classificação de Lotes")
 st.markdown("<h1 class='custom-header'>ccTerra::Dashboard Fundiário</h1>", unsafe_allow_html=True)
 
 
-# Carrega e valida dados
 DATA_FOLDER = "data/"
-df_raw = load_data(DATA_FOLDER)
-df_all, df_class, df_inter, df_ctx, counts = validate_data(df_raw)
-
 
 # ---------------------------------------------------
 # 6) Navegação
@@ -151,14 +147,19 @@ st.logo("./assets/CC_Terra.png", size="large")
 # ---------------------------------------------------
 # 7) Lógica de cada aba
 # ---------------------------------------------------
-if page == "Gráficos":
-   graficos_e_quadros()
-
-elif page == "Mapa Contextual":
-   mapa_contextuall()
-
-elif page == "Mapa Interativo":
-   mapa_interativo()
-
-else:  # Terra-AI
+if page == "Terra-AI":
    render_terra_ai()
+
+else:
+   # Carrega e valida dados só quando a página depende do CSV local
+   df_raw = load_data(DATA_FOLDER)
+   df_all, df_class, df_inter, df_ctx, counts = validate_data(df_raw)
+
+   if page == "Gráficos":
+      graficos_e_quadros()
+
+   elif page == "Mapa Contextual":
+      mapa_contextuall()
+
+   else:  # Mapa Interativo
+      mapa_interativo()
