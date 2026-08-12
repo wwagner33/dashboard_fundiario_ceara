@@ -12,16 +12,13 @@ Funções para gerar os gráficos de classificação:
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from public.cores import CORES as cores
-
-# Add this near the top of the code (with other constants)
-
-
-CORES = cores
-CORES["Sem Registro"] = "#9fa2a5"
+from public.cores import CORES
+import streamlit as st
 
 
 
+
+@st.cache_data
 def filtrar_dados(df: pd.DataFrame, scope: str, entidade: str = None) -> pd.DataFrame:
     if scope == "Todo o Estado":
         return df
@@ -32,7 +29,7 @@ def filtrar_dados(df: pd.DataFrame, scope: str, entidade: str = None) -> pd.Data
     else:
         raise ValueError(f"Escopo desconhecido: {scope}")
 
-
+@st.cache_data
 def classificar_propriedades(df: pd.DataFrame):
     mf = df["modulo_fiscal"]
     area = df["area"]
@@ -51,6 +48,7 @@ def classificar_propriedades(df: pd.DataFrame):
 
 
 # Modify the plot_barras function:
+@st.cache_data
 def plot_barras(resultados, titulo, subtitulo) -> plt.Figure:
     """
     Plota gráfico de barras com os valores e anota os totais acima de cada barra.
@@ -95,6 +93,7 @@ def plot_barras(resultados, titulo, subtitulo) -> plt.Figure:
 
 
 # Modify the plot_pizza function:
+@st.cache_data
 def plot_pizza(resultados, titulo, subtitulo) -> plt.Figure:
     """
     Plota gráfico de pizza com percentuais e legenda.
@@ -112,14 +111,11 @@ def plot_pizza(resultados, titulo, subtitulo) -> plt.Figure:
     # Get colors in correct order
     colors = [color_map[cat] for cat in resultados.keys()]
 
-    # plt.figure(figsize=(10, 10))
-    wedges, texts, autotexts = ax.pie(
+    wedges, texts = ax.pie(
         list(resultados.values()),
         labels=None,
-        autopct="%1.1f%%",
         startangle=90,
         colors=colors,
-        pctdistance=0.8,
     )
     ax.set_title(f"{titulo}\n{subtitulo}", fontsize=16)
     ax.axis("equal")
@@ -127,29 +123,259 @@ def plot_pizza(resultados, titulo, subtitulo) -> plt.Figure:
         wedges,
         resultados.keys(),
         title="Tipos de Propriedade",
-        loc="center left",
+        loc="upper right", # center left
         bbox_to_anchor=(1, 0, 0.5, 1),
     )
-    plt.tight_layout()
+    total = sum(resultados.values())
+    percentuais = {categoria: (valor / total) * 100 for categoria, valor in resultados.items()}
+    labels_legenda = [
+        f"{categoria} ({percentuais[categoria]:.1f}%)" 
+        for categoria in resultados.keys()
+    ]
+    
+    legenda = ax.legend(
+        wedges,
+        labels_legenda,
+        title="Tipos de Propriedade",
+        loc="upper right", # center left
+        bbox_to_anchor=(1, 0, 0.5, 1),
+        title_fontsize='15',
+        fontsize=13,
+    )
+    
+    plt.subplots_adjust(right=0.7) 
+    
+    
     return fig
 
 
-def compute_stats_df(df: pd.DataFrame) -> pd.DataFrame:
-    stats = df["area"].describe()
-    stats = stats.rename(
-        {
-            "count": "Contagem",
-            "mean": "Média",
-            "std": "Desvio Padrão",
-            "min": "Mínimo",
-            "25%": "1º Quartil",
-            "50%": "Mediana",
-            "75%": "3º Quartil",
-            "max": "Máximo",
-        }
+@st.cache_data
+def plot_area_pizza(df: pd.DataFrame, titulo: str) -> plt.Figure:
+    """
+    Plota gráfico de pizza mostrando a distribuição percentual das áreas por categoria
+    """
+    # Classifica as propriedades
+    mf = df["modulo_fiscal"]
+    area = df["area"]
+    categorias = np.where(
+        area < mf,
+        "Pequena Propriedade < 1 MF",
+        np.where(
+            area <= 4 * mf,
+            "Pequena Propriedade",
+            np.where(area <= 15 * mf, "Média Propriedade", "Grande Propriedade"),
+        ),
     )
-    return (
-        stats.to_frame(name="Área (ha)")
-        .reset_index()
-        .rename(columns={"index": "Estatística"})
+    
+    # Calcula a área total por categoria
+    df_categorizado = df.copy()
+    df_categorizado['categoria'] = categorias
+    area_por_categoria = df_categorizado.groupby('categoria')['area'].sum()
+    area_total = df['area'].sum()
+    
+    # Mapeamento de cores
+    color_map = {
+        "Pequena Propriedade < 1 MF": CORES["Pequena Propriedade < 1 MF"],
+        "Pequena Propriedade": CORES["Pequena Propriedade"],
+        "Média Propriedade": CORES["Média Propriedade"],
+        "Grande Propriedade": CORES["Grande Propriedade"],
+    }
+    
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Ordena as categorias para consistência
+    categorias_ordenadas = sorted(area_por_categoria.index, reverse=True)
+    areas_ordenadas = [area_por_categoria[cat] for cat in categorias_ordenadas]
+    colors = [color_map[cat] for cat in categorias_ordenadas]
+
+    ax.set_title(f"Total de Área: {area_total:.2f} ha".replace('.', ','), fontsize=18)
+
+    
+    # Plot do gráfico de pizza
+    wedges, texts, autotexts = ax.pie(
+        areas_ordenadas,
+        labels=None,
+        colors=colors,
+        startangle=90,
+        autopct='%1.1f%%',
+        pctdistance=0.75,
+        textprops={'fontsize': 12}
     )
+    
+    # Ajusta o estilo dos percentuais
+    for autotext in autotexts:
+        autotext.set_color('black')
+        autotext.set_fontweight('bold')
+    
+    # ax.set_title(f"Distribuição de Áreas por Propriedade\n{titulo}", fontsize=16, pad=20)
+    
+    # Adiciona legenda
+    percentuais = {cat: (area/area_total)*100 for cat, area in zip(categorias_ordenadas, areas_ordenadas)}
+    labels_legenda = [
+        f"{cat} ({percentuais[cat]:.1f}%)" 
+        for cat in categorias_ordenadas
+    ]
+    
+    ax.legend(
+        wedges,
+        labels_legenda,
+        title="Tipos de Propriedade",
+        loc="upper center",
+        bbox_to_anchor=(1, 0, 0.5, 1),
+        fontsize=14,
+        title_fontsize=13
+    )
+    
+    plt.tight_layout()
+    plt.subplots_adjust(right=0.7) 
+
+    return fig
+
+# Função alternativa usando a mesma estrutura do seu gráfico original
+@st.cache_data
+def plot_cadastro_pizza_estilo_original(df: pd.DataFrame, titulo: str = "Situação de Cadastro de Imóveis", df_original:pd.DataFrame = None) -> plt.Figure:
+    """
+    Versão mantendo o estilo do seu gráfico original de áreas
+    """
+    
+    total_cadastrados = len(df) if len(df_original) < len(df) else len(df_original)
+    
+    
+    
+    total_estimado = 312000
+    restante = total_estimado - total_cadastrados
+    
+    # Dados para o gráfico
+    categorias = ['Imóveis Cadastrados', 'A Cadastrar']
+    valores = [total_cadastrados, restante]
+    
+    # Mapeamento de cores
+    color_map = {
+        "Imóveis Cadastrados": "#1f77b4",
+        "A Cadastrar": "#ff7f0e"
+    }
+    
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Ordena as categorias
+    categorias_ordenadas = categorias
+    valores_ordenados = valores
+    cores = [color_map[cat] for cat in categorias_ordenadas]
+
+    # Plot do gráfico de pizza
+    wedges, texts, autotexts = ax.pie(
+        valores_ordenados,
+        labels=None,
+        colors=cores,
+        startangle=90,
+        autopct='%1.1f%%',
+        pctdistance=0.75,
+        textprops={'fontsize': 12}
+    )
+    
+    # Ajusta o estilo dos percentuais
+    for autotext in autotexts:
+        autotext.set_color('white')
+        autotext.set_fontweight('bold')
+        autotext.set_fontsize(11)
+    
+    # Título
+    ax.set_title(
+        f"Situação de Cadastro de Imóveis\nTotal Estimado: {total_estimado:,} imóveis", 
+        fontsize=16, 
+        pad=20,
+        fontweight='bold'
+    )
+    
+    # Adiciona legenda com valores absolutos
+    percentuais = {cat: (val/total_estimado)*100 for cat, val in zip(categorias_ordenadas, valores_ordenados)}
+    labels_legenda = [
+        f"{cat}\n{val:,.0f} imóveis ({percentuais[cat]:.1f}%)" 
+        for cat, val in zip(categorias_ordenadas, valores_ordenados)
+    ]
+    
+    ax.legend(
+        wedges,
+        labels_legenda,
+        title="Situação do Cadastro",
+        loc="center left",
+        bbox_to_anchor=(1, 0, 0.5, 1),
+        fontsize=12,
+        title_fontsize=13
+    )
+    
+    plt.tight_layout()
+    plt.subplots_adjust(right=0.7)
+
+    return fig
+
+
+def render_view_grafico_interativo(df_class):
+    
+    if 'selected_tab' not in st.session_state:
+        st.session_state.selected_tab = "Gráfico de Pizza"
+    
+    col1, col2 = st.columns([6, 4])
+    tab1, tab2 = col1.tabs(["Gráfico de Pizza","Gráfico de Barras"])
+    # tab1, tab2, tab3 = col1.tabs(["Gráfico de Pizza","Gráfico de Barras", "Gráfico de Geocadastro"])
+    col2.subheader("").markdown("### Parâmetros de Busca:")
+    co2_1, co2_2 = col2.columns([1, 1])
+    opcao = co2_1.selectbox(
+        "Filtrar por:", 
+        ["Todo o Estado", "Municípios", "Regiões Administrativas"],
+    )
+    entidade = ""
+    if opcao != "Todo o Estado":
+        col = "nome_municipio" if opcao == "Municípios" else "regiao_administrativa"
+        entidade = co2_2.selectbox(f"{opcao}:", sorted(df_class[col].dropna().unique()))
+    
+    df_original = df_class
+    df_filtrado = filtrar_dados(df_class, opcao, entidade)
+    resultados, total = classificar_propriedades(df_filtrado)
+    if 'selected_tab' not in st.session_state:
+        st.session_state.selected_tab = "Gráfico de Pizza"
+
+    def preencher_tabs():
+        fig_pizza = plot_pizza(
+            resultados, f"Propriedades - {opcao} - {entidade}", f"Total: {total}"
+        )
+        fig_barra = plot_barras(
+            resultados, f"Propriedades - {opcao} - {entidade}", f"Total: {total}"
+        )
+
+        # Novo gráfico de pizza de distribuição de áreas
+        fig_area_pizza = plot_area_pizza(
+            df_filtrado, 
+            f"{opcao} - {entidade}" if opcao != "Todo o Estado" else "Todo o Estado"
+        )
+
+        tab1.pyplot(fig_pizza)
+        tab2.pyplot(fig_barra)
+        
+        col2.subheader("").markdown("### Classificação de Propriedades")
+        col2.html(f"""
+                  <p id="op-ent"><b>{opcao}</b> - {entidade} </p>
+                  """)
+        col2.dataframe(df_tab, use_container_width=True, hide_index=True,)
+        
+        col2.subheader("").markdown("#### Distribuição de Áreas por Tipo de Propriedade")
+        col2.pyplot(fig_area_pizza)
+        # with tab3:
+        #     fig_cadastro_pizza = plot_cadastro_pizza_estilo_original(
+        #         df_filtrado, 
+        #         f"{opcao} - {entidade}" if opcao != "Todo o Estado" else "Todo o Estado",
+        #         df_class
+        #     )
+        #     st.pyplot(fig_cadastro_pizza)
+
+    if resultados:
+        # col1.markdown("##### Dados atualizados em 24/02/2025")
+        df_tab = pd.DataFrame(
+            list(resultados.items()), columns=["Categoria", "Quantidade"]
+        )
+        df_tab.loc[len(df_tab)] = ["Total", total]
+
+        # Tabs
+        preencher_tabs()
+    else:
+        st.warning("Nenhum dado disponível para o filtro selecionado.")

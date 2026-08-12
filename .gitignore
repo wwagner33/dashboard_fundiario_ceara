@@ -130,6 +130,9 @@ celerybeat.pid
 # Environments
 .env
 .venv
+
+# Streamlit secrets
+.streamlit/secrets.toml
 env/
 venv/
 ENV/
@@ -177,5 +180,9 @@ cython_debug/
 data/
 out/
 
- # emove pastas de cache
+ # Remove pastas de cache
  __pycache__/
+
+ #Remove pastas de testes e outras pastas de uso local
+ .idea/
+ .claude/

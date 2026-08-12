@@ -1,0 +1,4 @@
+# Dependências apenas para testes automatizados (não instalar em produção).
+-r requirements.txt
+pytest
+requests-mock

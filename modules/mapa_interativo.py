@@ -1,222 +1,331 @@
-"""
-Funções para gerar o mapa interativo:
-- preprocessar_tudo(df_inter)
-- criar_mapa_com_camadas(gdf_inter, sel_regiao)
-"""
+# modules/mapa_interativo.py
 
+# import streamlit as st
+# import folium
+# import json
+# import geopandas as gpd
+
+# from streamlit_folium import st_folium
+# from folium.plugins import Fullscreen, MiniMap
+# from modules.data_loader import (
+#     fetch_regioes, fetch_municipios,
+#     fetch_geojson_por_regiao, fetch_geojson_por_municipio,
+#     fetch_geojson_limites
+# )
+
+# from public.cores import CORES 
+
+
+# def simplify_geojson(geojson_data, tolerance=0.001):
+#     if not geojson_data or not geojson_data.get("features"):
+#         return geojson_data
+#     gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
+#     gdf["geometry"] = gdf["geometry"].simplify(tolerance)
+#     return json.loads(gdf.to_json())
+
+# def get_map_center(geojson):
+#     for f in geojson["features"]:
+#         g = f["geometry"]
+#         if g["type"] == "Polygon":
+#             lng, lat = g["coordinates"][0][0]
+#             return [lat, lng]
+#         elif g["type"] == "MultiPolygon":
+#             lng, lat = g["coordinates"][0][0][0]
+#             return [lat, lng]
+#     return [-5.2, -39.0]
+
+
+# def render_view_mapa_interativo():
+#     regioes = fetch_regioes()
+#     if not regioes:
+#         st.error("Erro ao carregar regiões.")
+#         st.stop()
+
+#     col1, col2 = st.columns([8,3])
+
+#     col2.html("""
+#                 <p class="paragrafo-com-icone">
+#                     <span class="icone-svg"></span> 
+#                     Este mapa apresenta a distribuição das propriedades rurais por categoria de 
+#                     tamanho (Pequena < 1 MF, Pequena, Média e Grande). </br></br>
+#                     As regiões em branco no mapa, são correspondentes às áreas urbanas ou áreas rurais ainda não regularizadas.
+#                 </p>
+#                 """)
+    
+#     col2.markdown("### Filtros")
+#     col2.html("""<span style='color: #000000 !important'>Do Estado do Ceará </span>
+#                 """)
+#     col2.html("""
+#                 <p class="paragrafo-com-icone" style="padding-bottom: 16px">
+#                     <span class="icone-svg"></span> 
+#                     O sistema é capaz de filtrar por Estado, Município ou Região Administrativa. 
+#                     Exibindo tanto a quantidade de propriedades quanto a proporção de área ocupada
+#                     por cada categoria, conforme o recorte desejado.
+#                 </p>
+#                 """)
+
+
+#     regiao = col2.selectbox("Selecione a Região administrativa", regioes)
+
+#     municipios = fetch_municipios(regiao)
+#     municipio = col2.selectbox("Selecione o Município", ["(toda a região)"] + municipios)
+
+#     try:
+#         if municipio == "(toda a região)":
+#             geojson_data = fetch_geojson_por_regiao(regiao)
+#             boundaries = []
+#             for m in municipios:
+#                 b = fetch_geojson_limites(m)
+#                 if b and b.get("features"):
+#                     boundaries.extend(b["features"])
+#             boundary_geojson = {"type":"FeatureCollection", "features":boundaries} if boundaries else None
+#         else:
+#             geojson_data = fetch_geojson_por_municipio(municipio)
+#             boundary_geojson = fetch_geojson_limites(municipio)
+#     except Exception as e:
+#         st.error(f"Erro ao baixar dados: {e}")
+#         st.stop()
+
+#     if not geojson_data or not geojson_data.get("features"):
+#         st.warning("Nenhuma geometria encontrada.")
+#         st.stop()
+
+#     geojson_data = simplify_geojson(geojson_data)
+#     center = get_map_center(geojson_data)
+
+#     m = folium.Map(location=center, zoom_start=9, tiles=None, control_scale=True)
+
+#     folium.TileLayer(
+#         # tiles='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+#         # attr='© OpenStreetMap contributors',
+#         tiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+#         attr = '© OpenStreetMap contributors, © CARTO',
+#         name='OpenpenStreetMap',
+#         control=False,  # para não aparecer no LayerControl
+#         overlay=True
+#     ).add_to(m)
+
+
+#     if boundary_geojson and boundary_geojson.get("features"):
+#         folium.GeoJson(
+#             boundary_geojson,
+#             name='<span><svg width="12" height="12"><rect width="12" height="12" fill="#003366"/></svg> Limites Municipais</span>',
+#             style_function=lambda x: {
+#                 'color': '#003366', 'weight': 2, 'opacity': 0.8,
+#                 'fill': False, 'dashArray': '5, 5'
+#             },
+#             tooltip=folium.GeoJsonTooltip(fields=['nome_municipio'], aliases=['Município:'])
+#         ).add_to(m)
+
+#     for categoria, cor in CORES.items():
+#         feats = [f for f in geojson_data["features"]
+#                 if f.get("properties", {}).get("categoria", "Sem Classificação") == categoria]
+#         if not feats:
+#             continue
+#         cat_geojson = {"type": "FeatureCollection", "features": feats}
+#         name_html = (
+#             f'<span><svg width="12" height="12">'
+#             f'<circle cx="6" cy="6" r="6" fill="{cor}" /></svg> {categoria}</span>'
+#         )
+#         fg = folium.FeatureGroup(name=name_html, overlay=True, control=True)
+#         folium.GeoJson(
+#             cat_geojson,
+#             style_function=lambda x, cor=cor: {
+#                 'fillColor': cor, 'color': '#000', 'weight': 0.5, 'fillOpacity': 0.6
+#             },
+#             tooltip=folium.GeoJsonTooltip(
+#                 fields=['imovel', 'nome_proprietario' ,'data_criacao_lote', 'numero_incra','numero_lote', 'area','situacao_juridica','regiao_administrativa','nome_municipio_original', 'categoria'],
+#                 aliases=['Nome:', 'Nome do Proprietário:','Data de Criação:','N° Incra:','N° Lote:','Área (ha):','Situação Jurídica:','Região Administrativa:','Município:', 'Categoria:'],
+#                 localize=True
+#             )
+#         ).add_to(fg)
+#         fg.add_to(m)
+
+#     with col1:
+#         with st.spinner("Gerando mapa..."):
+#             folium.LayerControl(collapsed=False).add_to(m)
+#             #Adicionando minimap
+#             MiniMap(toggle_display=True).add_to(m)
+#             Fullscreen().add_to(m)
+#             st_folium(m, width=1000, height=700, returned_objects=[],use_container_width=True)
+        
+#     st.stop()
+
+import streamlit as st
 import folium
-import pandas as pd
+import json
 import geopandas as gpd
-import numpy as np
-from shapely import wkt
-from shapely.ops import unary_union
-from shapely.geometry import Point
+from shapely import wkb
 
-# ————————————————————————————————————————————————————————————————————
-# Configuração de cores por categoria
-from public.cores import CORES as cores
+from streamlit_folium import st_folium
+from folium.plugins import Fullscreen, MiniMap
+from modules.data_loader import (
+    fetch_regioes, fetch_municipios,
+    fetch_geojson_por_regiao, fetch_geojson_por_municipio,
+    fetch_geojson_limites
+)
 
-CORES = cores
-CORES["Sem Classificação"] = "#808080"
+from public.cores import CORES 
 
-# ————————————————————————————————————————————————————————————————————
-def carregar_dados_por_regiao(data: pd.DataFrame, regiao: str) -> gpd.GeoDataFrame:
-    """Filtra e prepara os dados para a região especificada."""
-    df = data[
-        (data['regiao_administrativa'] == regiao) &
-        data['geom'].notna() &
-        data['geom'].apply(lambda x: isinstance(x, str))
-    ].copy()
-    if df.empty:
-        raise ValueError(f"Nenhum dado válido encontrado para: {regiao}")
-    return df
-
-# ————————————————————————————————————————————————————————————————————
-def preprocessar_tudo(df_raw: pd.DataFrame) -> gpd.GeoDataFrame:
+def convert_hex_to_geojson(geojson_data):
     """
-    1) Filtra os dados válidos
-    2) Converte WKT para Shapely
-    3) Converte para GeoDataFrame
-    4) Classifica todas as propriedades
-    5) Retorna um GeoDataFrame COMPLETO pronto pra filtrar por região.
+    Converte geometrias em formato hexadecimal para geometrias Shapely/GeoJSON
     """
-    df = df_raw[df_raw['geom'].notna() & df_raw['geom'].apply(lambda x: isinstance(x, str))].copy()
-
-    # converte string WKT em shapely
-    def to_geom(w):
-        try:
-            return wkt.loads(w)
-        except:
-            return None
-
-    df['geometry'] = df['geom'].map(to_geom)
-    df = df[df['geometry'].notna()]
-
-    # monta GeoDataFrame e projeta
-    gdf = gpd.GeoDataFrame(df, geometry='geometry', crs='EPSG:31984')
-    gdf = gdf.to_crs(epsg=4326)
-
-    # Classificação
-    conds = [
-        (gdf['area'] > 0) & (gdf['area'] < gdf['modulo_fiscal']),
-        (gdf['area'] >= gdf['modulo_fiscal']) & (gdf['area'] <= 4 * gdf['modulo_fiscal']),
-        (gdf['area'] > 4 * gdf['modulo_fiscal']) & (gdf['area'] <= 15 * gdf['modulo_fiscal']),
-        (gdf['area'] > 15 * gdf['modulo_fiscal'])
-    ]
-    cats = list(CORES.keys())[:-1]
-    gdf['categoria'] = np.select(conds, cats, default="Sem Classificação")
-
-    return gdf
-
-
-# def criar_mapa_com_camadas(gdf: gpd.GeoDataFrame, regiao: str) -> folium.Map:
-#     """Gera um mapa Folium com camadas por categoria para a região especificada."""
-#     # Projeta para cálculo de centro e remove geometrias vazias
-#     gdf_proj = gdf.to_crs(epsg=31983)
-#     gdf_proj = gdf_proj[~gdf_proj.geometry.is_empty]
-#     if gdf_proj.empty:
-#         raise ValueError(f"Sem geometrias válidas para calcular o centro em: {regiao}")
-
-#     # calcula centroide da união de geometrias
-#     union_geom = unary_union(gdf_proj.geometry)
-#     centro_proj = union_geom.centroid
-#     centro_wgs84 = gpd.GeoSeries([centro_proj], crs='EPSG:31983').to_crs(epsg=4326)[0]
-
-#     # inicia mapa centrado
-#     m = folium.Map(
-#         location=[centro_wgs84.y, centro_wgs84.x],
-#         zoom_start=10,
-#         width="95%",
-#         height="800px"
-#     )
-
-#     # cria grupo para cada categoria
-#     grupos = {cat: folium.FeatureGroup(name=cat) for cat in CORES.keys()}
-#     for fg in grupos.values():
-#         m.add_child(fg)
-
-#     # adiciona geometrias filtradas
-#     region_gdf = gdf[gdf['regiao_administrativa'] == regiao]
-#     for _, row in region_gdf.iterrows():
-#         fg = grupos.get(row['categoria'])
-#         if fg and hasattr(row.geometry, 'geom_type'):
-#             folium.GeoJson(
-#                 row.geometry,
-#                 style_function=lambda feat, cat=row['categoria']: {
-#                     'fillColor': CORES[cat],
-#                     'color': 'black',
-#                     'weight': 0.5,
-#                     'fillOpacity': 0.7
-#                 },
-#                 tooltip=folium.Tooltip(
-#                     html=(
-#                         f"<strong>Nome:</strong> {row.get('imovel', '')}<br>"
-#                         f"<strong>INCRA:</strong> {row.get('numero_incra', '')}<br>"
-#                         f"<strong>Situação:</strong> {row.get('situacao_juridica', '')}<br>"
-#                         f"<strong>Município:</strong> {row.get('nome_municipio', '')}<br>"
-#                         f"<strong>Distrito:</strong> {row.get('distrito', '')}<br>"
-#                         f"<strong>Área:</strong> {row['area']} ha<br>"
-#                         f"<strong>Categoria:</strong> {row['categoria']}"
-#                     )
-#                 )
-#             ).add_to(fg)
-
-#     # legenda estática
-#     legend = f"""
-#       <div style="position: fixed; top: 150px; right: 150px; z-index:1000;
-#                   background:white; padding:10px; border:2px solid grey;
-#                   border-radius:5px; font-size:14px;">
-#         <strong>{regiao}</strong><br>
-#         {'<br>'.join([f'<i style="color:{c}">■</i> {cat}' for cat,c in CORES.items()])}
-#       </div>
-#     """
-#     m.get_root().html.add_child(folium.Element(legend))
-
-#     # controle de camadas
-#     folium.LayerControl(collapsed=True).add_to(m)
-
-#     return m
-def criar_mapa_com_camadas(gdf: gpd.GeoDataFrame, regiao: str) -> folium.Map:
-    """
-    Gera um mapa Folium com camadas por categoria para a região especificada,
-    corrigindo geometrias inválidas e usando fallback de bounding box se necessário.
-    """
-    # 1) Projeta para cálculo e remove geometrias vazias
-    gdf_proj = gdf.to_crs(epsg=31983)
-    gdf_proj = gdf_proj[~gdf_proj.geometry.is_empty]
-    if gdf_proj.empty:
-        raise ValueError(f"Sem geometrias válidas para calcular o centro em: {regiao}")
-
-    # 2) Tenta corrigir geometrias inválidas e fazer o union
-    try:
-        geoms_fixed = gdf_proj.geometry.apply(
-            lambda g: g.buffer(0) if not g.is_valid else g
-        )
-        union_geom = unary_union(geoms_fixed)
-        centro_proj = union_geom.centroid
-    except Exception:
-        # Fallback: usa bounding box
-        xmin, ymin, xmax, ymax = gdf_proj.total_bounds
-        centro_proj = Point((xmin + xmax) / 2, (ymin + ymax) / 2)
-
-    # 3) Transforma o ponto central para WGS84
-    centro_wgs84 = (
-        gpd.GeoSeries([centro_proj], crs="EPSG:31983")
-           .to_crs(epsg=4326)[0]
-    )
-
-    # 4) Inicia o mapa centrado
-    m = folium.Map(
-        location=[centro_wgs84.y, centro_wgs84.x],
-        zoom_start=10,
-        width="95%",
-        height="800px"
-    )
-
-    # 5) Cria um FeatureGroup para cada categoria
-    grupos = {cat: folium.FeatureGroup(name=cat) for cat in CORES.keys()}
-    for fg in grupos.values():
-        m.add_child(fg)
-
-    # 6) Adiciona as geometrias da região selecionada
-    region_gdf = gdf[gdf["regiao_administrativa"] == regiao]
-    for _, row in region_gdf.iterrows():
-        fg = grupos.get(row["categoria"])
-        if fg:
-            folium.GeoJson(
-                row.geometry,
-                style_function=lambda feat, cat=row["categoria"]: {
-                    "fillColor": CORES[cat],
-                    "color": "black",
-                    "weight": 0.5,
-                    "fillOpacity": 0.7
-                },
-                popup=folium.Popup(
-                    html=(
-                        f"<strong>Nome:</strong> {row.get('imovel','')}<br>"
-                        f"<strong>INCRA:</strong> {row.get('numero_incra','')}<br>"
-                        f"<strong>Situação:</strong> {row.get('situacao_juridica','')}<br>"
-                        f"<strong>Município:</strong> {row.get('nome_municipio','')}<br>"
-                        f"<strong>Distrito:</strong> {row.get('distrito','')}<br>"
-                        f"<strong>Área:</strong> {row['area']} ha<br>"
-                        f"<strong>Categoria:</strong> {row['categoria']}"
-                    )
+    if not geojson_data or not geojson_data.get("features"):
+        return geojson_data
+    
+    # Converter para GeoDataFrame
+    gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
+    
+    # Verificar se a coluna geometry contém dados hexadecimais
+    if not gdf.empty and 'geometry' in gdf.columns:
+        # Se a coluna geometry contém strings hexadecimais, converter para geometrias Shapely
+        if gdf['geometry'].dtype == 'object' and gdf['geometry'].iloc[0] and isinstance(gdf['geometry'].iloc[0], str):
+            try:
+                # Tentar converter de hexadecimal para geometria
+                gdf['geometry'] = gdf['geometry'].apply(
+                    lambda x: wkb.loads(x, hex=True) if x and isinstance(x, str) else x
                 )
-            ).add_to(fg)
+            except Exception as e:
+                st.warning(f"Algumas geometrias não puderam ser convertidas: {e}")
+                # Se falhar, assumir que já estão no formato correto
+                pass
+    
+    return json.loads(gdf.to_json())
 
-    # 7) Adiciona legenda estática
-    legend = f"""
-    <div style="
-        position: fixed; top: 150px; right: 150px; z-index:1000;
-        background:white; padding:10px; border:2px solid grey;
-        border-radius:5px; font-size:14px;">
-      <strong>{regiao}</strong><br>
-      {'<br>'.join([f'<i style="color:{c}">■</i> {cat}' for cat,c in CORES.items()])}
-    </div>
-    """
-    m.get_root().html.add_child(folium.Element(legend))
+def simplify_geojson(geojson_data, tolerance=0.001):
+    if not geojson_data or not geojson_data.get("features"):
+        return geojson_data
+    gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
+    gdf["geometry"] = gdf["geometry"].simplify(tolerance)
+    return json.loads(gdf.to_json())
 
-    # 8) Controla as camadas
-    folium.LayerControl(collapsed=True).add_to(m)
+def get_map_center(geojson):
+    for f in geojson["features"]:
+        g = f["geometry"]
+        if g["type"] == "Polygon":
+            lng, lat = g["coordinates"][0][0]
+            return [lat, lng]
+        elif g["type"] == "MultiPolygon":
+            lng, lat = g["coordinates"][0][0][0]
+            return [lat, lng]
+    return [-5.2, -39.0]
 
-    return m
+def render_view_mapa_interativo():
+    regioes = fetch_regioes()
+    if not regioes:
+        st.error("Erro ao carregar regiões.")
+        st.stop()
+
+    col1, col2 = st.columns([8,3])
+
+    col2.html("""
+                <p class="paragrafo-com-icone">
+                    <span class="icone-svg"></span> 
+                    Este mapa apresenta a distribuição das propriedades rurais por categoria de 
+                    tamanho (Pequena < 1 MF, Pequena, Média e Grande). </br></br>
+                    As regiões em branco no mapa, são correspondentes às áreas urbanas ou áreas rurais ainda não regularizadas.
+                </p>
+                """)
+    
+    col2.markdown("### Filtros")
+    col2.html("""<span style='color: #000000 !important'>Do Estado do Ceará </span>
+                """)
+    col2.html("""
+                <p class="paragrafo-com-icone" style="padding-bottom: 16px">
+                    <span class="icone-svg"></span> 
+                    O sistema é capaz de filtrar por Estado, Município ou Região Administrativa. 
+                    Exibindo tanto a quantidade de propriedades quanto a proporção de área ocupada
+                    por cada categoria, conforme o recorte desejado.
+                </p>
+                """)
+
+
+    regiao = col2.selectbox("Selecione a Região administrativa", regioes)
+
+    municipios = fetch_municipios(regiao)
+    municipio = col2.selectbox("Selecione o Município", ["(toda a região)"] + municipios)
+
+    try:
+        if municipio == "(toda a região)":
+            geojson_data = fetch_geojson_por_regiao(regiao)
+            boundaries = []
+            for m in municipios:
+                b = fetch_geojson_limites(m)
+                if b and b.get("features"):
+                    boundaries.extend(b["features"])
+            boundary_geojson = {"type":"FeatureCollection", "features":boundaries} if boundaries else None
+        else:
+            geojson_data = fetch_geojson_por_municipio(municipio)
+            boundary_geojson = fetch_geojson_limites(municipio)
+    except Exception as e:
+        st.error(f"Erro ao baixar dados: {e}")
+        st.stop()
+
+    if not geojson_data or not geojson_data.get("features"):
+        st.warning("Nenhuma geometria encontrada.")
+        st.stop()
+
+    # CONVERSÃO CRÍTICA: Converter geometrias hexadecimais para formato Folium-compatível
+    geojson_data = convert_hex_to_geojson(geojson_data)
+    
+    # Simplificar após a conversão
+    geojson_data = simplify_geojson(geojson_data)
+    
+    center = get_map_center(geojson_data)
+
+    m = folium.Map(location=center, zoom_start=9, tiles=None, control_scale=True)
+
+    folium.TileLayer(
+        tiles='https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        attr='© OpenStreetMap contributors, © CARTO',
+        name='OpenpenStreetMap',
+        control=False,
+        overlay=True
+    ).add_to(m)
+
+    if boundary_geojson and boundary_geojson.get("features"):
+        # Também converter boundaries se necessário
+        boundary_geojson = convert_hex_to_geojson(boundary_geojson)
+        folium.GeoJson(
+            boundary_geojson,
+            name='<span><svg width="12" height="12"><rect width="12" height="12" fill="#003366"/></svg> Limites Municipais</span>',
+            style_function=lambda x: {
+                'color': '#003366', 'weight': 2, 'opacity': 0.8,
+                'fill': False, 'dashArray': '5, 5'
+            },
+            tooltip=folium.GeoJsonTooltip(fields=['nome_municipio'], aliases=['Município:'])
+        ).add_to(m)
+
+    for categoria, cor in CORES.items():
+        feats = [f for f in geojson_data["features"]
+                if f.get("properties", {}).get("categoria", "Sem Classificação") == categoria]
+        if not feats:
+            continue
+        cat_geojson = {"type": "FeatureCollection", "features": feats}
+        name_html = (
+            f'<span><svg width="12" height="12">'
+            f'<circle cx="6" cy="6" r="6" fill="{cor}" /></svg> {categoria}</span>'
+        )
+        fg = folium.FeatureGroup(name=name_html, overlay=True, control=True)
+        folium.GeoJson(
+            cat_geojson,
+            style_function=lambda x, cor=cor: {
+                'fillColor': cor, 'color': '#000', 'weight': 0.5, 'fillOpacity': 0.6
+            },
+            tooltip=folium.GeoJsonTooltip(
+                fields=['imovel', 'nome_proprietario' ,'data_criacao_lote', 'numero_incra','numero_lote', 'area','situacao_juridica','regiao_administrativa','nome_municipio_original', 'categoria'],
+                aliases=['Nome:', 'Nome do Proprietário:','Data de Criação:','N° Incra:','N° Lote:','Área (ha):','Situação Jurídica:','Região Administrativa:','Município:', 'Categoria:'],
+                localize=True
+            )
+        ).add_to(fg)
+        fg.add_to(m)
+
+    with col1:
+        with st.spinner("Gerando mapa..."):
+            folium.LayerControl(collapsed=False).add_to(m)
+            MiniMap(toggle_display=True).add_to(m)
+            Fullscreen().add_to(m)
+            st_folium(m, width=1000, height=700, returned_objects=[], use_container_width=True)
+        
+    st.stop()

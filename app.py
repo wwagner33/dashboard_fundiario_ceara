@@ -1,51 +1,65 @@
 # app.py
+
+# OBservações
+#  st_folium(m, width=1000, height=900, returned_objects=[]) returned_objects -> serve para o mapa não
+# use_container_width=True -> serve para usar todo o width disponível
+# retornar nada.
+
 import streamlit as st
-import pandas as pd
-import numpy as np
 from streamlit_folium import st_folium
+#import folium
+from typing import TypedDict
+# import os
+
+
+class DebugInfo(TypedDict):
+    municipios_recebidos: int
+    municipios_com_dados: int | None  # None até ser calculado
+    municipios_sem_dados: int | None
+
 
 from modules import (
     load_csv_data as load_data,
     load_municipios,
     validate_data,
-    filtrar_dados,
-    classificar_propriedades,
-    plot_barras,
-    plot_pizza,
-    compute_stats_df,
     load_municipios,
-    preparar_dados as preparar_dados_ctx,
-    criar_mapa_contextual,
-    preprocessar_tudo,
-    criar_mapa_com_camadas,
+    render_view_assentamento_map,
+    render_view_gini_map,
+    render_view_grafico_interativo,
+    render_view_mapa_interativo,
+    render_view_predominancia_map,
+    render_view_reservatorios_map,
+    render_view_escolas_map
 )
 
+
+# Configuração  da API
+# DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
+
+
+REQUEST_TIMEOUT = 120  # segundos
+
+
+st.set_page_config(
+    page_title="Dashboard",
+    page_icon="🌿",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 # -----------------------------
 # 🔒 Aplicação de Cache
 # -----------------------------
 
 # Cacheia a leitura de CSVs e DataFrames pesados (expira em 1h)
-load_data = st.cache_data(ttl=3600)(
-    load_data
-)  # :contentReference[oaicite:2]{index=2} :contentReference[oaicite:3]{index=3}
+load_data = st.cache_resource(ttl=3600)(load_data)
 
 # Cacheia validações e splits de dados (poupando re-execuções)
-validate_data = st.cache_data()(validate_data)  # :contentReference[oaicite:4]{index=4}
-
-# Cacheia filtros, classificações e estatísticas
-filtrar_dados = st.cache_data()(filtrar_dados)
-classificar_propriedades = st.cache_data()(classificar_propriedades)
-compute_stats_df = st.cache_data()(
-    compute_stats_df
-)  # :contentReference[oaicite:5]{index=5}
+validate_data = st.cache_resource(ttl=3600)(validate_data)
 
 # Cacheia GeoDataFrame de municípios e preparação de contexto
-load_municipios = st.cache_data()(load_municipios)
-preparar_dados_ctx = st.cache_data()(preparar_dados_ctx)
-preprocessar_tudo = st.cache_data()(
-    preprocessar_tudo
-)  # :contentReference[oaicite:6]{index=6}
+load_municipios = st.cache_resource(ttl=3600)(load_municipios)
+
 
 # -----------------------------
 # 🚀 App Streamlit
@@ -53,108 +67,1356 @@ preprocessar_tudo = st.cache_data()(
 
 # ---------------------------------------------------
 # 0) Definição de funções de visualizações
-# --------------------------------------------------- 
+# ---------------------------------------------------
+
+
+@st.cache_resource
+def load_once():
+    df_raw = load_data("")
+    return validate_data(df_raw)
+
+    # Carrega e valida dados
+    """
+    Carrega e valida dados
+      - df_all   : DataFrame completo com dados fundiários de todos os municípios do ceará
+      - df_class : DataFrame com a classificação de propriedades de todo o ceará
+      - gdf_inter: GeoDataFrame pronto para mapa interativo pois contém as informações de geometria as propriedades
+      - df_ctx   : DataFrame para mapa de Predominância
+      - counts   : dict de totais e descartados
+    """
+
+
+df_all, df_class, df_inter, df_ctx, counts = load_once()
+dados_fundiarios = df_all #load_data("")
+contorno_municipios = load_municipios("")
+
+
+######################### Gráficos de Tabelas Gerais do Estado #########################
 def graficos_e_quadros():
-    col1, col2 = st.columns([1, 1]) 
-    tab1, tab2 = col1.tabs(["📈 Barra", "📈 Pizza"])
-    co2_1, co2_2 = col2.columns([1, 1]) 
-    opcao = co2_1.selectbox(
-        "Mostrar por", ["Todo o Estado", "Municípios", "Regiões Administrativas"]
-    )
-    entidade = None
-    if opcao != "Todo o Estado":
-        col = "nome_municipio" if opcao == "Municípios" else "regiao_administrativa" 
-        entidade = co2_2.selectbox(
-            f"Selecionar {opcao}",
-            sorted(df_class[col].dropna().unique())
-        )
+    render_view_grafico_interativo(df_class)
 
-    df_filtrado = filtrar_dados(df_class, opcao, entidade)
-    resultados, total = classificar_propriedades(df_filtrado)
 
-    def preencher_tabs():
-        fig_barra = plot_barras(resultados, f"Propriedades - {opcao} - {entidade}", f"Total: {total}")
-        fig_pizza = plot_pizza(resultados, f"Propriedades - {opcao} - {entidade}", f"Total: {total}")
-            
-        tab1.pyplot(fig_barra)
-        tab2.pyplot(fig_pizza)
+######################### Mapa de Predominância #########################
+def mapa_de_Predominância(dados_fundiarios, contorno_municipios):
+    render_view_predominancia_map(dados_fundiarios, contorno_municipios)
 
-        col2.subheader(f"Classificação de Propriedades ({opcao} - {entidade})")
-        col2.table(df_tab)
 
-        col2.subheader("Estatísticas Adicionais")
-        col2.table(compute_stats_df(df_class))
-        fig = plot_pizza(resultados, f"Propriedades - {opcao}", f"Total: {total}")
-    
-    if resultados:
-        st.html('<sapn>Dados atualizadoe em xx/xx/2025</span>')
-        df_tab = pd.DataFrame(
-            list(resultados.items()), columns=["Categoria", "Quantidade"]
-        )
-        df_tab.loc[len(df_tab)] = ["Total", total]
-
-        # Tabs
-        preencher_tabs()
-        
-    else:
-        st.warning("Nenhum dado disponível para o filtro selecionado.")
-
-def mapa_contextuall():
-    muni_gdf = load_municipios(DATA_FOLDER)
-    gdf_ctx = preparar_dados_ctx(df_ctx, muni_gdf)
-    mapa = criar_mapa_contextual(gdf_ctx)
-    st_folium(mapa, width=800, height=600)
-
+######################### Mapa Interativo da Malha Fundiária #########################
+# TODO Inserir o nome dos municipipios na camada de delimitacao dos municipio (fazer em todos os mapas)
 def mapa_interativo():
-    sel_regiao = st.sidebar.selectbox(
-        "Região Administrativa", sorted(df_inter["regiao_administrativa"].unique())
+    render_view_mapa_interativo()
+
+
+######################### Mapa de Gini do Estado #########################
+# TODO Inserir o nome dos municipios e os limitadores em todos os municipios
+def mapa_gini(dados_fundiarios, contorno_municipios):
+    render_view_gini_map(dados_fundiarios, contorno_municipios)
+
+
+######################### Mapa de Assentamentos do Estado ######################
+def mapa_Assentamentos():
+    render_view_assentamento_map()
+
+
+######################### Mapa de Hidrográfico do Estado #######################
+def mapa_hidrográfico():
+    render_view_reservatorios_map()
+
+######################### Mapa de Escolas do Campo #######################
+def mapa_escolas_do_campo():
+    render_view_escolas_map()
+
+
+######################### Sobre o projeto  #######################
+def sobre():
+    st.markdown(
+        """
+        <div class="minha-div">
+            <img src="https://i.imgur.com/N1Ymd3d.png" alt="Imagem do IDACE">
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-    mapa = criar_mapa_com_camadas(df_inter, sel_regiao)
-    st_folium(mapa, width=800, height=600)
+    with st.container():
+        st.html("""<div class="teste"></div>""")
+        st.html("""
+                <div class="container-estilizado2">
+                <h4>O projeto Terra.Ce</h4>
+                <p> 
+                  Aplicação de painéis contendo dados estatísticos e geoespaciais 
+                  da malha fundiária cearense desenvolvido, principalmente, a partir 
+                  dos dados cadastrados no Instituto de Desenvolvimento Agrário do Ceará (IDACE).
+                  Este software faz parte das ações realizadas no âmbito do projeto 
+                  <strong>Cientista Chefe Terra  de Governança Fundiária e Ambiental</strong>, parceria entre o IDACE, a Universidade Federal do Ceará (UFC) e a Fundação Cearense de Apoio ao Desenvolvimento Científico e Tecnológico (Funcap).
+                </p>
+                <p style='padding-top: 5px;'> <i>Coordenadora Geral </br> Maria Inês Escobar da Costa Casimiro </i></p>
+                </div>
+                """)
+
+        # Equipe de desenvolvimento
+        st.html("""
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Equipe de Desenvolvimento - TerraCE</h3>
+                <span class="titulo">Coordenadora Técnico de Sistemas/UFC</span>
+                <span class="subtitulo">Wellington Wagner Ferreira Sarmento</span>
+
+                <span class="titulo">Doutoranda MDCC/UFC</span>
+                <span class="subtitulo">Me. Patrícia de Sousa Paula</span>
+
+            </div>
+            
+            <!-- Segunda Seção -->
+            <div>
+                <span class="titulo">Pesquisador/UFC</span>
+                <span class="subtitulo">André Lucas de Oliveira Domingues </span>
+
+                <span class="titulo">Pesquisador/UFC</span>
+                <span class="subtitulo">Wesley Barbosa Martins Ribeiro</span>
+            </div>
+            
+        </div>
+        """)
+
+        # Licença de Uso
+        st.html("""
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Licença de Uso</h3>
+              
+                <span class="subtitulo"><a href="https://github.com/Projeto-Cientista-Chefe-Terra/dashboard_fundiario_ceara/blob/main/LICENSE" target="_blank" style='text-decoration: underline;'> GNU General Public License (GPL) </a></span>
+
+                
+
+            </div>
+            
+        </div>
+        """)
+
+        # Link para o projeto
+        st.html("""
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Cientista Chefe Terra de Governança Fundiária e Ambiental</h3>
+                <span class="titulo">Site Institucional</span>
+                <span class="subtitulo">
+                  <a href="https://ccterra-site.vercel.app" target="_blank" style='text-decoration: underline;'>https://ccterra-site.vercel.app</a>
+                </span>
+
+                <span class="titulo">Código Fonte</span>
+                <span class="subtitulo">
+                  <a href="https://github.com/Projeto-Cientista-Chefe-Terra" target="_blank" style='text-decoration: underline;'>https://github.com/Projeto-Cientista-Chefe-Terra</a>
+                </span>
+
+            </div>            
+        </div>
+        """)
+
+        # Apoio
+        st.html("""
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Apoio</h3>
+            </div>            
+        </div>
+        """)
+        
+        st.html("""<div class="imgs_logo_apoio"></div>""")
+        st.image("./assets/Logos.png", use_container_width=True)
+        col1, col2, col3, col4 = st.columns(
+            4,
+            vertical_alignment="center",
+        )
+
+    # with col1:
+    #     st.image("./assets/Idace.png", width=150)
+
+    # with col2:
+    #     st.image("./assets/CC_Terra.png", width=150)
+
+    # with col3:
+    #     st.image("./assets/funcap.png", width=250)
+
+    # with col4:
+    #     st.image("./assets/ufc_logo.png", width=150)
+
+
+######################### Landing Page  #######################
+def landing_page():
+    with st.container():
+        
+        # st.image("https://www.idace.ce.gov.br/wp-content/uploads/sites/84/2025/07/368A8108-768x512.jpg", use_container_width=True)
+        st.markdown(
+            """
+            <div class="minha-div">
+                <img src="https://i.imgur.com/6Hk77Gg.png" alt="Imagem do IDACE">
+            </div>
+            <div class="minha-div">
+                <img src="https://i.imgur.com/N1Ymd3d.png" alt="Imagem do IDACE">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.html("""
+        
+        <div class="container-estilizado">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Equipe Idace</h3>
+                <span ></span>
+                <span ></span>
+
+                <span class="titulo">Superintendente</span>
+                <span class="subtitulo">João Alfredo Telles Melo</span>
+                
+                <span class="titulo">Superintendente Adjunto</span>
+                <span class="subtitulo">Antônio Rodrigues de Amorim</span>
+            </div>
+            
+            <!-- Segunda Seção -->
+            <div>
+                <span class="titulo">Diretora Administrativo-Financeira</span>
+                <span class="subtitulo">Claudecilia de Oliveira Teixeira</span>
+                
+                <span class="titulo">Diretor Técnico de Operações</span>
+                <span class="subtitulo">Paulo H. Magalhães Lobo</span>
+                
+                <span class="titulo">Assessor Jurídico</span>
+                <span class="subtitulo">Ricardo Sá Benevides Magalhães</span>
+                
+                <span class="titulo">Assessor de Comunicação</span>
+                <span class="subtitulo">Marina Holanda Pinheiro</span>
+                
+                <span class="titulo">Assessoria de Desenvolvimento Institucional (Adins)</span>
+                <span class="subtitulo">Maria das Graças Farias Pedrosa</span>
+                
+                <span class="titulo">Ouvidoria </span>
+                <span class="subtitulo">Domingos Rocha</span>
+            </div>
+            
+            <!-- Terceira Seção (Imagem como link) -->
+            
+                <a href="https://drive.google.com/file/d/1pdqD_55RAo3UNkp7ggx1MUGcKaH0UtSZ/view?usp=drive_link" target="_blank">
+                    <img src="https://www.idace.ce.gov.br/wp-content/uploads/sites/84/2021/07/idace_apresentacao_banner.png" alt="Imagem" class="imagem-link">
+                </a>
+            
+        </div>
+        """)
+        st.html("""
+                <div class="container-estilizado2">
+                <h4>Bem-vindo(a) à Terra.Ce</h4>
+                <p> 
+                    “A plataforma Terra.CE é fruto de uma parceria de inovação pública entre IDACE a  Universidade Federal do Ceará e a FUNCAP. A sistematização dos dados aqui apresentados é fruto do Projeto Cientista Chefe Governança Fundiária e Ambiental - CCTERRA, que visa fortalecer a gestão da terra no Ceará por meio da pesquisa e da ciência de dados. Esta plataforma disponibiliza indicadores e mapas interativos para subsidiar políticas públicas baseadas em evidências, promovendo uma governança integrada, sustentável e transparente. Compreender as dinâmicas territoriais é essencial para um Ceará mais justo social e ambientalmente.”
+                </p>
+                </div>
+                """)
+        st.html("""
+        
+        <div class="container-estilizado ">
+            <!-- Primeira Seção -->
+            <div>
+                <h3>Equipe TerraCE</h3>
+                <span class="titulo">Coordenadora do Projeto/UFC</span>
+                <span class="subtitulo">Maria Inês Escobar da Costa Casimiro</span>
+
+                <span class="titulo">Coordenador Técnico de Sistemas/UFC</span>
+                <span class="subtitulo">Wellington Wagner Ferreira Sarmento</span>
+
+                <span class="titulo">Coordenadora de Análises Quantitativas/UFC</span>
+                <span class="subtitulo">Maria de Nazaré Moraes Soares</span>
+
+                <span class="titulo">Coordenadora de Análises Qualitativas/UFC</span>
+                <span class="subtitulo">Kelly Maria Gomes Menezes</span>
+
+                <span class="titulo">Coordenadora de Ações de Campo</span>
+                <span class="subtitulo">Christine Farias Coelho</span>
+
+                <span class="titulo">Pesquisadora</span>
+                <span class="subtitulo">Erika Roanna da Silva</span>
+            </div>
+            
+            <!-- Segunda Seção -->
+            <div>
+                <span class="titulo">Pesquisadora</span>
+                <span class="subtitulo">Bárbara Sheyla Pereira Lima Moreira</span>
+
+                <span class="titulo">Pesquisador</span>
+                <span class="subtitulo">Bruno Silva Pereira</span>
+
+                <span class="titulo">Pesquisador</span>
+                <span class="subtitulo">André Lucas de Oliveira Domingues</span>
+
+                <span class="titulo">Pesquisador</span>
+                <span class="subtitulo">Wesley Barbosa Martins Ribeiro</span>
+
+                <span class="titulo">Pesquisadora</span>
+                <span class="subtitulo">Juliana Azevedo da Silva</span>
+
+                <span class="titulo">Pesquisador</span>
+                <span class="subtitulo">Fernando Abreu</span>
+            </div>
+            
+        </div>
+        """)
+        st.html("""<section class="AcessoRapido">
+      <div class="wrapper">
+        <div class="row">
+          <h4>Acesso Rápido</h4>
+
+          <nav class="MenuAcessos">
+            <div class="acesso-rapido">
+              <ul id="menu-acesso-rapido-footer" class="menu">
+                <li
+                  id="menu-item-870"
+                  class="portal menu-item menu-item-type-custom menu-item-object-custom menu-item-870"
+                >
+                  <a href="https://cearatransparente.ce.gov.br" target="_blank"
+                    ><i class="PortalTransparencia"></i>
+                    <span>
+                      Ceará<br />
+                      Transparente
+                    </span>
+                  </a>
+                </li>
+                <li
+                  id="menu-item-871"
+                  class="acesso menu-item menu-item-type-custom menu-item-object-custom menu-item-871"
+                >
+                  <a href="http://cartadeservicos.ce.gov.br/" target="_blank"
+                    ><i class="AcessoCidadao"></i>
+                    <span> Carta de Serviços<br />do Cidadão </span>
+                  </a>
+                </li>
+                <li
+                  id="menu-item-872"
+                  class="lei menu-item menu-item-type-custom menu-item-object-custom menu-item-872"
+                >
+                  <a
+                    href="https://cearatransparente.ce.gov.br/portal-da-transparencia/acesso-a-informacao?locale=pt-BR"
+                    target="_blank"
+                    ><i class="AcessoInformacao"></i>
+                    <span>
+                      Lei geral de<br />
+                      acesso à informação
+                    </span>
+                  </a>
+                </li>
+                <li
+                  id="menu-item-873"
+                  class="diario menu-item menu-item-type-custom menu-item-object-custom menu-item-873"
+                >
+                  <a
+                    href="http://pesquisa.doe.seplag.ce.gov.br/"
+                    target="_blank"
+                    ><i class="DiarioOficial"></i>
+
+                    <span>
+                      Diário<br />
+                      Oficial
+                    </span>
+                  </a>
+                </li>
+                <li
+                  id="menu-item-874"
+                  class="legislacao menu-item menu-item-type-custom menu-item-object-custom menu-item-874"
+                >
+                  <a href="https://www.al.ce.gov.br/" target="_blank"
+                    ><i class="Legislacao"></i>
+
+                    <span>
+                      Legislação<br />
+                      Estadual
+                    </span>
+                  </a>
+                </li>
+                <li
+                  id="menu-item-61919"
+                  class="acoes menu-item menu-item-type-post_type menu-item-object-page menu-item-61919"
+                >
+                  <a
+                    href="https://www.ceara.gov.br/wp-content/uploads/2025/07/Codigo-de-Etica.pdf"
+                    target="_blank"
+                    ><i class="AcoesGoverno"></i>
+                    <span> Código de Ética dos Servidores Públicos </span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </nav>
+        </div>
+      </div>
+    </section>
+    <footer>
+      <div class="wrapper">
+        <div class="row Infos" style="border-top: none">
+          <div class="dt-2 NomeSite">
+            <a class="link-gov" href="http://WWW.IDACE.CE.GOV.BR">
+              <h2>IDACE.CE.GOV.BR</h2>
+            </a>
+          </div>
+
+          <div class="dt-10 Direitos">
+            <div>
+              <div class="textwidget">
+                <div class="box">
+                  <h2>IDACE</h2>
+                  <p>
+                    Av. Bezerra de Menezes, 1820 - São Gerardo<br />
+                    Fortaleza, CE<br />
+                    CEP: 60.325-001
+                  </p>
+                </div>
+                <div class="box">
+                  <h2>Horário de Atendimento</h2>
+                  <p>8h às 12h</p>
+                  <p>13h às 17h</p>
+                </div>
+
+                <div class="box">
+                  <h2 class="canais">Nossos canais</h2>
+                  <div class="redes">
+                    <ul class="menu">
+                      <li class="facebook redesLinkRodape">
+                        <a
+                          href="https://www.facebook.com/idace.gov"
+                          style="overflow: hidden"
+                          target="_blank"
+                          >Facebook</a
+                        >
+                      </li>
+                      <li class="instagram redesLinkRodape">
+                        <a
+                          href="https://www.instagram.com/idace.ce/"
+                          style="overflow: hidden"
+                          target="_blank"
+                          >Instagram</a
+                        >
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div class="box copyright">
+                  <p>
+                    © 2017 - 2025 – governo do estado do ceará<br />
+                    todos os direitos reservados
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>""")
 
 
 
+######################### Estrutura Geral de Navegação #########################
 # ---------------------------------------------------
 # 1) set_page_config deve ser o primeiro comando do Streamlit
 # ---------------------------------------------------
-st.set_page_config(
-    page_title="ccTerra::Análise da Concentração Fundiária do Ceará",
-    page_icon="🌿",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 with open("style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-st.title("ccTerra::Classificação de Lotes")
-st.markdown("<h1 class='custom-header'>ccTerra::Dashboard Fundiário</h1>", unsafe_allow_html=True)
+
+st.logo("./assets/Frame 18.png", size="large")
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "Inicio"
 
 
-# Carrega e valida dados
-DATA_FOLDER = "data/"
-df_raw = load_data(DATA_FOLDER)
-df_all, df_class, df_inter, df_ctx, counts = validate_data(df_raw)
 
+# if st.session_state.current_page != 'Inicio':
+    # st.logo("./assets/Frame 18.png", size="large")
+import streamlit.components.v1 as components
+
+# Configuração do estado da sessão
+mystate = st.session_state
+if "sidebar_btn_status" not in mystate:
+    mystate.sidebar_btn_status = [False] * 9  # 9 botões na sidebar
+
+# Configurações de cores
+unpressed_colour = "#00824110"    # Cor quando não pressionado
+pressed_colour = "#E1B87EBC"  # Cor quando  pressionado
+
+# # Lista de botões da sidebar
+sidebar_buttons = [
+    {
+        "label": "Início", 
+        "icon": ":material/home:", 
+        "page": "Inicio"
+    },
+    {
+        "label": "Gráficos e Quadros", 
+        "icon": ":material/bar_chart_4_bars:", 
+        "page": "Gráficos"
+    },
+    {
+        "label": "Mapa de Predominância", 
+        "icon": ":material/distance:", 
+        "page": "Mapa de Predominância"
+    },
+    {
+        "label": "Mapa da Malha Fundiária", 
+        "icon": ":material/map_search:", 
+        "page": "Mapa da Malha Fundiária"
+    },
+    {
+        "label": "Mapa de Concentração Fundiária",
+        "icon": ":material/crisis_alert:",
+        "page": "Mapa de Concentração Fundiária"
+    },
+    {
+        "label": "Mapa de Assentamentos",
+        "icon": ":material/globe_location_pin:",
+        "page": "Mapa de Assentamento"
+    },
+    {
+        "label": "Mapa Hidrográfico", 
+        "icon": ":material/water_drop:", 
+        "page": "Mapa Hidrografico"
+    },
+    {
+        "label": "Mapa Escolas do Campo", 
+        "icon": ":material/school:", 
+        "page": "Mapa Escolas do Campo"
+    },
+    {
+        "label": "Sobre", 
+        "icon": ":material/info:", 
+        "page": "Sobre"
+    }
+]
+
+# # Função para mudar a cor dos botões
+def ChangeButtonColour(widget_label, prsd_status):
+    btn_bg_colour = pressed_colour if prsd_status else unpressed_colour
+    htmlstr = f"""
+        <script>
+            var elements = window.parent.document.querySelectorAll('button');
+            for (var i = 0; i < elements.length; ++i) {{ 
+                if (elements[i].innerText.includes('{widget_label}')) {{ 
+                    elements[i].style.background = '{btn_bg_colour}';
+                    elements[i].style.color = '#000000';
+                    elements[i].style.border = '1px solid {pressed_colour if prsd_status else '#C5CAE9'}';
+                }}
+            }}
+        </script>
+        """
+    components.html(f"{htmlstr}", height=0, width=0)
+
+# Função para verificar o estado dos botões e atribuir cores
+def ChkBtnStatusAndAssignColour():
+    for i, btn in enumerate(sidebar_buttons):
+        ChangeButtonColour(btn["label"], mystate.sidebar_btn_status[i])
+
+# Callback quando um botão é pressionado
+def btn_pressed_callback(i):
+    # Reseta todos os botões
+    mystate.sidebar_btn_status = [False] * len(sidebar_buttons)
+    # Ativa apenas o botão pressionado
+    mystate.sidebar_btn_status[i] = True
+    # Define a página atual
+    mystate.current_page = sidebar_buttons[i]["page"]
+    # st.rerun()
+
+# # Sidebar
+with st.sidebar:
+    # Cria os botões
+    for i, btn in enumerate(sidebar_buttons):
+        st.button(
+            f"{btn['label']}",
+            icon=btn['icon'],
+            key=f"sidebar_btn_{i}",
+            on_click=btn_pressed_callback,
+            args=(i,),
+            use_container_width=True
+        )
+    
+    # Aplica os estilos aos botões
+    ChkBtnStatusAndAssignColour()
+
+# Verifica se há uma página atual definida e atualiza o botão correspondente
+# if "current_page" in mystate:
+#     for i, btn in enumerate(sidebar_buttons):
+#         if btn["page"] == mystate.current_page:
+#             mystate.sidebar_btn_status[i] = True
+#             ChkBtnStatusAndAssignColour()
 
 # ---------------------------------------------------
 # 6) Navegação
 # ---------------------------------------------------
-page = st.sidebar.selectbox(
-    "Navegação", ["Gráficos", "Mapa Contextual", "Mapa Interativo"]
-)
 
-
-st.logo("./assets/CC_Terra.png", size="large")
 
 # ---------------------------------------------------
 # 7) Lógica de cada aba
 # ---------------------------------------------------
-if page == "Gráficos":
-   graficos_e_quadros()
+if st.session_state.current_page == "Inicio":
+    landing_page()
+    
+elif st.session_state.current_page == "Gráficos":
+    st.title("").markdown("## Gráficos e Quadros")
+    graficos_e_quadros()
 
-elif page == "Mapa Contextual":
-   mapa_contextuall()
+elif st.session_state.current_page == "Mapa de Predominância":
+    st.title("").markdown(
+        "## Mapa de Predominância do Tipo de  Imóvel por Município",
+        unsafe_allow_html=True,
+    )
+    mapa_de_Predominância(dados_fundiarios, contorno_municipios)
 
-else:  # Mapa Interativo
-   mapa_interativo()
+elif st.session_state.current_page == "Mapa da Malha Fundiária":
+    st.title("").markdown(
+        "## Mapa da Malha Fundiária",
+        unsafe_allow_html=True,
+    )
+    mapa_interativo()
+
+elif st.session_state.current_page == "Mapa de Concentração Fundiária":
+    st.title("").markdown(
+        "## Mapa de Concentração Fundiária do Ceará",
+        unsafe_allow_html=True,
+    )
+    mapa_gini(dados_fundiarios, contorno_municipios)
+
+elif st.session_state.current_page == "Mapa Hidrografico":
+    st.title("").markdown(
+        "## Mapa Hidrográfico",
+        unsafe_allow_html=True,
+    )
+    mapa_hidrográfico()
+elif st.session_state.current_page == "Mapa de Assentamento":
+    st.title("").markdown(
+        "## Mapa de Assentamentos",
+        unsafe_allow_html=True,
+    )
+    mapa_Assentamentos()
+
+elif st.session_state.current_page == "Mapa Escolas do Campo":
+    st.title("").markdown(
+        "## Mapa Escolas do Campo",
+        unsafe_allow_html=True,
+    )
+    mapa_escolas_do_campo()  
+
+
+elif st.session_state.current_page == "Sobre":
+    # st.title("").markdown("## Sobre")
+    sobre()
+
+# app.py
+
+# OBservações
+#  st_folium(m, width=1000, height=900, returned_objects=[]) returned_objects -> serve para o mapa não
+# use_container_width=True -> serve para usar todo o width disponível
+# retornar nada.
+
+# import streamlit as st
+# from streamlit_folium import st_folium
+# #import folium
+# from typing import TypedDict
+# import os
+
+
+# class DebugInfo(TypedDict):
+#     municipios_recebidos: int
+#     municipios_com_dados: int | None  # None até ser calculado
+#     municipios_sem_dados: int | None
+
+
+# from modules import (
+#     load_csv_data as load_data,
+#     load_municipios,
+#     validate_data,
+#     load_municipios,
+#     render_view_assentamento_map,
+#     render_view_gini_map,
+#     render_view_grafico_interativo,
+#     render_view_mapa_interativo,
+#     render_view_predominancia_map,
+#     render_view_reservatorios_map,
+#     render_view_escolas_map,
+# )
+
+
+# # Configuração  da API
+# # DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000/api")
+
+
+# REQUEST_TIMEOUT = 120  # segundos
+
+
+# st.set_page_config(
+#     page_title="Dashboard",
+#     page_icon="🌿",
+#     layout="wide",
+#     initial_sidebar_state="collapsed",
+# )
+
+# # -----------------------------
+# # 🔒 Aplicação de Cache
+# # -----------------------------
+
+# # Cacheia a leitura de CSVs e DataFrames pesados (expira em 1h)
+# load_data = st.cache_resource(ttl=3600)(load_data)
+
+# # Cacheia validações e splits de dados (poupando re-execuções)
+# validate_data = st.cache_resource()(validate_data)
+
+# # Cacheia GeoDataFrame de municípios e preparação de contexto
+# load_municipios = st.cache_resource()(load_municipios)
+
+
+# # -----------------------------
+# # 🚀 App Streamlit
+# # -----------------------------
+
+# # ---------------------------------------------------
+# # 0) Definição de funções de visualizações
+# # ---------------------------------------------------
+
+
+# @st.cache_resource
+# def load_once():
+#     df_raw = load_data("")
+#     return validate_data(df_raw)
+
+#     # Carrega e valida dados
+#     """
+#     Carrega e valida dados
+#       - df_all   : DataFrame completo com dados fundiários de todos os municípios do ceará
+#       - df_class : DataFrame com a classificação de propriedades de todo o ceará
+#       - gdf_inter: GeoDataFrame pronto para mapa interativo pois contém as informações de geometria as propriedades
+#       - df_ctx   : DataFrame para mapa de Predominância
+#       - counts   : dict de totais e descartados
+#     """
+
+
+# df_all, df_class, df_inter, df_ctx, counts = load_once()
+# dados_fundiarios = df_all #load_data("")
+# contorno_municipios = load_municipios("")
+
+
+# ######################### Gráficos de Tabelas Gerais do Estado #########################
+# def graficos_e_quadros():
+#     render_view_grafico_interativo(df_class)
+
+
+# ######################### Mapa de Predominância #########################
+# def mapa_de_Predominância(dados_fundiarios, contorno_municipios):
+#     render_view_predominancia_map(dados_fundiarios, contorno_municipios)
+
+
+# ######################### Mapa Interativo da Malha Fundiária #########################
+# # TODO Inserir o nome dos municipipios na camada de delimitacao dos municipio (fazer em todos os mapas)
+# def mapa_interativo():
+#     render_view_mapa_interativo()
+
+
+# ######################### Mapa de Gini do Estado #########################
+# # TODO Inserir o nome dos municipios e os limitadores em todos os municipios
+# def mapa_gini(dados_fundiarios, contorno_municipios):
+#     render_view_gini_map(dados_fundiarios, contorno_municipios)
+
+
+# ######################### Mapa de Assentamentos do Estado ######################
+# def mapa_Assentamentos():
+#     render_view_assentamento_map()
+
+
+# ######################### Mapa de Hidrográfico do Estado #######################
+# def mapa_hidrográfico():
+#     render_view_reservatorios_map()
+
+# ######################### Mapa de Escolas do Campo #######################
+# def mapa_escolas_do_campo():
+#     render_view_escolas_map() # Substituir
+
+
+# ######################### Sobre o projeto  #######################
+# def sobre():
+#     st.markdown(
+#         """
+#         <div class="minha-div">
+#             <img src="https://i.imgur.com/N1Ymd3d.png" alt="Imagem do IDACE">
+#         </div>
+#         """,
+#         unsafe_allow_html=True
+#     )
+#     with st.container():
+#         st.html("""<div class="teste"></div>""")
+#         st.html("""
+#                 <div class="container-estilizado2">
+#                 <h4>O projeto Terra.Ce</h4>
+#                 <p> 
+#                   Aplicação de painéis contendo dados estatísticos e geoespaciais 
+#                   da malha fundiária cearense desenvolvido, principalmente, a partir 
+#                   dos dados cadastrados no Instituto de Desenvolvimento Agrário do Ceará (IDACE).
+#                   Este software faz parte das ações realizadas no âmbito do projeto 
+#                   <strong>Cientista Chefe Terra  de Governança Fundiária e Ambiental</strong>, parceria entre o IDACE, a Universidade Federal do Ceará (UFC) e a Fundação Cearense de Apoio ao Desenvolvimento Científico e Tecnológico (Funcap).
+#                 </p>
+#                 <p style='padding-top: 5px;'> <i>Coordenadora Geral </br> Maria Inês Escobar da Costa Casimiro </i></p>
+#                 </div>
+#                 """)
+
+#         # Equipe de desenvolvimento
+#         st.html("""
+#         <div class="container-estilizado ">
+#             <!-- Primeira Seção -->
+#             <div>
+#                 <h3>Equipe de Desenvolvimento - TerraCE</h3>
+#                 <span class="titulo">Coordenadora Técnico de Sistemas/UFC</span>
+#                 <span class="subtitulo">Wellington Wagner Ferreira Sarmento</span>
+
+#                 <span class="titulo">Doutoranda MDCC/UFC</span>
+#                 <span class="subtitulo">Me. Patrícia de Sousa Paula</span>
+
+#             </div>
+            
+#             <!-- Segunda Seção -->
+#             <div>
+#                 <span class="titulo">Pesquisador/UFC</span>
+#                 <span class="subtitulo">André Lucas de Oliveira Domingues </span>
+
+#                 <span class="titulo">Pesquisador/UFC</span>
+#                 <span class="subtitulo">Wesley Barbosa Martins Ribeiro</span>
+#             </div>
+            
+#         </div>
+#         """)
+
+#         # Licença de Uso
+#         st.html("""
+#         <div class="container-estilizado ">
+#             <!-- Primeira Seção -->
+#             <div>
+#                 <h3>Licença de Uso</h3>
+              
+#                 <span class="subtitulo"><a href="https://github.com/Projeto-Cientista-Chefe-Terra/dashboard_fundiario_ceara/blob/main/LICENSE" target="_blank" style='text-decoration: underline;'> GNU General Public License (GPL) </a></span>
+
+                
+
+#             </div>
+            
+#         </div>
+#         """)
+
+#         # Link para o projeto
+#         st.html("""
+#         <div class="container-estilizado ">
+#             <!-- Primeira Seção -->
+#             <div>
+#                 <h3>Cientista Chefe Terra de Governança Fundiária e Ambiental</h3>
+#                 <span class="titulo">Site Institucional</span>
+#                 <span class="subtitulo">
+#                   <a href="https://ccterra-site.vercel.app" target="_blank" style='text-decoration: underline;'>https://ccterra-site.vercel.app</a>
+#                 </span>
+
+#                 <span class="titulo">Código Fonte</span>
+#                 <span class="subtitulo">
+#                   <a href="https://github.com/Projeto-Cientista-Chefe-Terra" target="_blank" style='text-decoration: underline;'>https://github.com/Projeto-Cientista-Chefe-Terra</a>
+#                 </span>
+
+#             </div>            
+#         </div>
+#         """)
+
+#         # Apoio
+#         st.html("""
+#         <div class="container-estilizado ">
+#             <!-- Primeira Seção -->
+#             <div>
+#                 <h3>Apoio</h3>
+#             </div>            
+#         </div>
+#         """)
+        
+#         st.html("""<div class="imgs_logo_apoio"></div>""")
+#         st.image("./assets/Logos.png", use_container_width=True)
+#         col1, col2, col3, col4 = st.columns(
+#             4,
+#             vertical_alignment="center",
+#         )
+
+#     # with col1:
+#     #     st.image("./assets/Idace.png", width=150)
+
+#     # with col2:
+#     #     st.image("./assets/CC_Terra.png", width=150)
+
+#     # with col3:
+#     #     st.image("./assets/funcap.png", width=250)
+
+#     # with col4:
+#     #     st.image("./assets/ufc_logo.png", width=150)
+
+
+# ######################### Landing Page  #######################
+# def landing_page():
+#     # ! Depois de finalizar, retornar
+#     # if st.button("Acessar a plataforma Terra.Ce"):
+#     #     st.session_state.current_page = "Gráficos"
+#     #     st.rerun()
+    
+#     with st.container():
+        
+#         # st.image("https://www.idace.ce.gov.br/wp-content/uploads/sites/84/2025/07/368A8108-768x512.jpg", use_container_width=True)
+#         st.markdown(
+#             """
+#             <div class="minha-div">
+#                 <img src="https://i.imgur.com/6Hk77Gg.png" alt="Imagem do IDACE">
+#             </div>
+#             <div class="minha-div">
+#                 <img src="https://i.imgur.com/N1Ymd3d.png" alt="Imagem do IDACE">
+#             </div>
+#             """,
+#             unsafe_allow_html=True
+#         )
+#         st.html("""
+        
+#         <div class="container-estilizado">
+#             <!-- Primeira Seção -->
+#             <div>
+#                 <h3>Equipe Idace</h3>
+#                 <span ></span>
+#                 <span ></span>
+
+#                 <span class="titulo">Superintendente</span>
+#                 <span class="subtitulo">João Alfredo Telles Melo</span>
+                
+#                 <span class="titulo">Superintendente Adjunto</span>
+#                 <span class="subtitulo">Antônio Rodrigues de Amorim</span>
+#             </div>
+            
+#             <!-- Segunda Seção -->
+#             <div>
+#                 <span class="titulo">Diretora Administrativo-Financeira</span>
+#                 <span class="subtitulo">Claudecilia de Oliveira Teixeira</span>
+                
+#                 <span class="titulo">Diretor Técnico de Operações</span>
+#                 <span class="subtitulo">Paulo H. Magalhães Lobo</span>
+                
+#                 <span class="titulo">Assessor Jurídico</span>
+#                 <span class="subtitulo">Ricardo Sá Benevides Magalhães</span>
+                
+#                 <span class="titulo">Assessor de Comunicação</span>
+#                 <span class="subtitulo">Marina Holanda Pinheiro</span>
+                
+#                 <span class="titulo">Assessoria de Desenvolvimento Institucional (Adins)</span>
+#                 <span class="subtitulo">Maria das Graças Farias Pedrosa</span>
+                
+#                 <span class="titulo">Ouvidoria </span>
+#                 <span class="subtitulo">Domingos Rocha</span>
+#             </div>
+            
+#             <!-- Terceira Seção (Imagem como link) -->
+            
+#                 <a href="https://drive.google.com/file/d/1pdqD_55RAo3UNkp7ggx1MUGcKaH0UtSZ/view?usp=drive_link" target="_blank">
+#                     <img src="https://www.idace.ce.gov.br/wp-content/uploads/sites/84/2021/07/idace_apresentacao_banner.png" alt="Imagem" class="imagem-link">
+#                 </a>
+            
+#         </div>
+#         """)
+#         st.html("""
+#                 <div class="container-estilizado2">
+#                 <h4>Bem-vindo(a) à Terra.Ce</h4>
+#                 <p> 
+#                     “A plataforma Terra.CE é fruto de uma parceria de inovação pública entre IDACE a  Universidade Federal do Ceará e a FUNCAP. A sistematização dos dados aqui apresentados é fruto do Projeto Cientista Chefe Governança Fundiária e Ambiental - CCTERRA, que visa fortalecer a gestão da terra no Ceará por meio da pesquisa e da ciência de dados. Esta plataforma disponibiliza indicadores e mapas interativos para subsidiar políticas públicas baseadas em evidências, promovendo uma governança integrada, sustentável e transparente. Compreender as dinâmicas territoriais é essencial para um Ceará mais justo social e ambientalmente.”
+#                 </p>
+#                 </div>
+#                 """)
+#         st.html("""
+        
+#         <div class="container-estilizado ">
+#             <!-- Primeira Seção -->
+#             <div>
+#                 <h3>Equipe TerraCE</h3>
+#                 <span class="titulo">Coordenadora do Projeto/UFC</span>
+#                 <span class="subtitulo">Maria Inês Escobar da Costa Casimiro</span>
+
+#                 <span class="titulo">Coordenador Técnico de Sistemas/UFC</span>
+#                 <span class="subtitulo">Wellington Wagner Ferreira Sarmento</span>
+
+#                 <span class="titulo">Coordenadora de Análises Quantitativas/UFC</span>
+#                 <span class="subtitulo">Maria de Nazaré Moraes Soares</span>
+
+#                 <span class="titulo">Coordenadora de Análises Qualitativas/UFC</span>
+#                 <span class="subtitulo">Kelly Maria Gomes Menezes</span>
+
+#                 <span class="titulo">Coordenadora de Ações de Campo</span>
+#                 <span class="subtitulo">Christine Farias Coelho</span>
+
+#                 <span class="titulo">Pesquisadora</span>
+#                 <span class="subtitulo">Erika Roanna da Silva</span>
+#             </div>
+            
+#             <!-- Segunda Seção -->
+#             <div>
+#                 <span class="titulo">Pesquisadora</span>
+#                 <span class="subtitulo">Bárbara Sheyla Pereira Lima Moreira</span>
+
+#                 <span class="titulo">Pesquisador</span>
+#                 <span class="subtitulo">Bruno Silva Pereira</span>
+
+#                 <span class="titulo">Pesquisador</span>
+#                 <span class="subtitulo">André Lucas de Oliveira Domingues</span>
+
+#                 <span class="titulo">Pesquisador</span>
+#                 <span class="subtitulo">Wesley Barbosa Martins Ribeiro</span>
+
+#                 <span class="titulo">Pesquisadora</span>
+#                 <span class="subtitulo">Juliana Azevedo da Silva</span>
+
+#                 <span class="titulo">Pesquisador</span>
+#                 <span class="subtitulo">Fernando Abreu</span>
+#             </div>
+            
+#         </div>
+#         """)
+#         st.html("""<section class="AcessoRapido">
+#       <div class="wrapper">
+#         <div class="row">
+#           <h4>Acesso Rápido</h4>
+
+#           <nav class="MenuAcessos">
+#             <div class="acesso-rapido">
+#               <ul id="menu-acesso-rapido-footer" class="menu">
+#                 <li
+#                   id="menu-item-870"
+#                   class="portal menu-item menu-item-type-custom menu-item-object-custom menu-item-870"
+#                 >
+#                   <a href="https://cearatransparente.ce.gov.br" target="_blank"
+#                     ><i class="PortalTransparencia"></i>
+#                     <span>
+#                       Ceará<br />
+#                       Transparente
+#                     </span>
+#                   </a>
+#                 </li>
+#                 <li
+#                   id="menu-item-871"
+#                   class="acesso menu-item menu-item-type-custom menu-item-object-custom menu-item-871"
+#                 >
+#                   <a href="http://cartadeservicos.ce.gov.br/" target="_blank"
+#                     ><i class="AcessoCidadao"></i>
+#                     <span> Carta de Serviços<br />do Cidadão </span>
+#                   </a>
+#                 </li>
+#                 <li
+#                   id="menu-item-872"
+#                   class="lei menu-item menu-item-type-custom menu-item-object-custom menu-item-872"
+#                 >
+#                   <a
+#                     href="https://cearatransparente.ce.gov.br/portal-da-transparencia/acesso-a-informacao?locale=pt-BR"
+#                     target="_blank"
+#                     ><i class="AcessoInformacao"></i>
+#                     <span>
+#                       Lei geral de<br />
+#                       acesso à informação
+#                     </span>
+#                   </a>
+#                 </li>
+#                 <li
+#                   id="menu-item-873"
+#                   class="diario menu-item menu-item-type-custom menu-item-object-custom menu-item-873"
+#                 >
+#                   <a
+#                     href="http://pesquisa.doe.seplag.ce.gov.br/"
+#                     target="_blank"
+#                     ><i class="DiarioOficial"></i>
+
+#                     <span>
+#                       Diário<br />
+#                       Oficial
+#                     </span>
+#                   </a>
+#                 </li>
+#                 <li
+#                   id="menu-item-874"
+#                   class="legislacao menu-item menu-item-type-custom menu-item-object-custom menu-item-874"
+#                 >
+#                   <a href="https://www.al.ce.gov.br/" target="_blank"
+#                     ><i class="Legislacao"></i>
+
+#                     <span>
+#                       Legislação<br />
+#                       Estadual
+#                     </span>
+#                   </a>
+#                 </li>
+#                 <li
+#                   id="menu-item-61919"
+#                   class="acoes menu-item menu-item-type-post_type menu-item-object-page menu-item-61919"
+#                 >
+#                   <a
+#                     href="https://www.ceara.gov.br/wp-content/uploads/2025/07/Codigo-de-Etica.pdf"
+#                     target="_blank"
+#                     ><i class="AcoesGoverno"></i>
+#                     <span> Código de Ética dos Servidores Públicos </span>
+#                   </a>
+#                 </li>
+#               </ul>
+#             </div>
+#           </nav>
+#         </div>
+#       </div>
+#     </section>
+#     <footer>
+#       <div class="wrapper">
+#         <div class="row Infos" style="border-top: none">
+#           <div class="dt-2 NomeSite">
+#             <a class="link-gov" href="http://WWW.IDACE.CE.GOV.BR">
+#               <h2>IDACE.CE.GOV.BR</h2>
+#             </a>
+#           </div>
+
+#           <div class="dt-10 Direitos">
+#             <div>
+#               <div class="textwidget">
+#                 <div class="box">
+#                   <h2>IDACE</h2>
+#                   <p>
+#                     Av. Bezerra de Menezes, 1820 - São Gerardo<br />
+#                     Fortaleza, CE<br />
+#                     CEP: 60.325-001
+#                   </p>
+#                 </div>
+#                 <div class="box">
+#                   <h2>Horário de Atendimento</h2>
+#                   <p>8h às 12h</p>
+#                   <p>13h às 17h</p>
+#                 </div>
+
+#                 <div class="box">
+#                   <h2 class="canais">Nossos canais</h2>
+#                   <div class="redes">
+#                     <ul class="menu">
+#                       <li class="facebook redesLinkRodape">
+#                         <a
+#                           href="https://www.facebook.com/idace.gov"
+#                           style="overflow: hidden"
+#                           target="_blank"
+#                           >Facebook</a
+#                         >
+#                       </li>
+#                       <li class="instagram redesLinkRodape">
+#                         <a
+#                           href="https://www.instagram.com/idace.ce/"
+#                           style="overflow: hidden"
+#                           target="_blank"
+#                           >Instagram</a
+#                         >
+#                       </li>
+#                     </ul>
+#                   </div>
+#                 </div>
+
+#                 <div class="box copyright">
+#                   <p>
+#                     © 2017 - 2025 – governo do estado do ceará<br />
+#                     todos os direitos reservados
+#                   </p>
+#                 </div>
+#               </div>
+#             </div>
+#           </div>
+#         </div>
+#       </div>
+#     </footer>""")
+
+
+
+# ######################### Estrutura Geral de Navegação #########################
+# # ---------------------------------------------------
+# # 1) set_page_config deve ser o primeiro comando do Streamlit
+# # ---------------------------------------------------
+# with open("style.css") as f:
+#     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+
+# st.logo("./assets/Frame 18.png", size="large")
+# if "current_page" not in st.session_state:
+#     st.session_state.current_page = "Inicio"
+
+
+
+# # if st.session_state.current_page != 'Inicio':
+#     # st.logo("./assets/Frame 18.png", size="large")
+# import streamlit.components.v1 as components
+
+# # Configuração do estado da sessão
+# mystate = st.session_state
+# if "sidebar_btn_status" not in mystate:
+#     mystate.sidebar_btn_status = [False] * 9  # 7 botões na sidebar
+
+# # Configurações de cores
+# unpressed_colour = "#00824110"    # Cor quando não pressionado
+# pressed_colour = "#E1B87EBC"  # Cor quando  pressionado
+
+# # # Lista de botões da sidebar
+# sidebar_buttons = [
+#     {
+#         "label": "Início", 
+#         "icon": ":material/home:", 
+#         "page": "Inicio"
+#     },
+#     {
+#         "label": "Gráficos e Quadros", 
+#         "icon": ":material/bar_chart_4_bars:", 
+#         "page": "Gráficos"
+#     },
+#     {
+#         "label": "Mapa de Predominância", 
+#         "icon": ":material/distance:", 
+#         "page": "Mapa de Predominância"
+#     },
+#     {
+#         "label": "Mapa da Malha Fundiária", 
+#         "icon": ":material/map_search:", 
+#         "page": "Mapa da Malha Fundiária"
+#     },
+#     {
+#         "label": "Mapa de Concentração Fundiária",
+#         "icon": ":material/crisis_alert:",
+#         "page": "Mapa de Concentração Fundiária"
+#     },
+#     {
+#         "label": "Mapa de Assentamentos",
+#         "icon": ":material/globe_location_pin:",
+#         "page": "Mapa de Assentamento"
+#     },
+#     {
+#         "label": "Mapa Hidrográfico", 
+#         "icon": ":material/water_drop:", 
+#         "page": "Mapa Hidrografico"
+#     },
+#     {
+#         "label": "Mapa Escolas do Campo", 
+#         "icon": ":material/school:", 
+#         "page": "Mapa Escolas do Campo"
+#     },
+#     {
+#         "label": "Sobre", 
+#         "icon": ":material/info:", 
+#         "page": "Sobre"
+#     }
+# ]
+
+# # # Função para mudar a cor dos botões
+# def ChangeButtonColour(widget_label, prsd_status):
+#     btn_bg_colour = pressed_colour if prsd_status else unpressed_colour
+#     htmlstr = f"""
+#         <script>
+#             var elements = window.parent.document.querySelectorAll('button');
+#             for (var i = 0; i < elements.length; ++i) {{ 
+#                 if (elements[i].innerText.includes('{widget_label}')) {{ 
+#                     elements[i].style.background = '{btn_bg_colour}';
+#                     elements[i].style.color = '#000000';
+#                     elements[i].style.border = '1px solid {pressed_colour if prsd_status else '#C5CAE9'}';
+#                 }}
+#             }}
+#         </script>
+#         """
+#     components.html(f"{htmlstr}", height=0, width=0)
+
+# # Função para verificar o estado dos botões e atribuir cores
+# def ChkBtnStatusAndAssignColour():
+#     for i, btn in enumerate(sidebar_buttons):
+#         ChangeButtonColour(btn["label"], mystate.sidebar_btn_status[i])
+
+# # Callback quando um botão é pressionado
+# def btn_pressed_callback(i):
+#     # Reseta todos os botões
+#     mystate.sidebar_btn_status = [False] * len(sidebar_buttons)
+#     # Ativa apenas o botão pressionado
+#     mystate.sidebar_btn_status[i] = True
+#     # Define a página atual
+#     mystate.current_page = sidebar_buttons[i]["page"]
+#     # st.rerun()
+
+# # # Sidebar
+# with st.sidebar:
+#     # Cria os botões
+#     for i, btn in enumerate(sidebar_buttons):
+#         st.button(
+#             f"{btn['label']}",
+#             icon=btn['icon'],
+#             key=f"sidebar_btn_{i}",
+#             on_click=btn_pressed_callback,
+#             args=(i,),
+#             use_container_width=True
+#         )
+    
+#     # Aplica os estilos aos botões
+#     ChkBtnStatusAndAssignColour()
+
+# # Verifica se há uma página atual definida e atualiza o botão correspondente
+# # if "current_page" in mystate:
+# #     for i, btn in enumerate(sidebar_buttons):
+# #         if btn["page"] == mystate.current_page:
+# #             mystate.sidebar_btn_status[i] = True
+# #             ChkBtnStatusAndAssignColour()
+
+# # ---------------------------------------------------
+# # 6) Navegação
+# # ---------------------------------------------------
+
+
+# # ---------------------------------------------------
+# # 7) Lógica de cada aba
+# # ---------------------------------------------------
+# if st.session_state.current_page == "Inicio":
+#     landing_page()
+    
+# elif st.session_state.current_page == "Gráficos":
+#     st.title("").markdown("## Gráficos e Quadros")
+#     graficos_e_quadros()
+
+# elif st.session_state.current_page == "Mapa de Predominância":
+#     st.title("").markdown(
+#         "## Mapa de Predominância do Tipo de  Imóvel por Município",
+#         unsafe_allow_html=True,
+#     )
+#     mapa_de_Predominância(dados_fundiarios, contorno_municipios)
+
+# elif st.session_state.current_page == "Mapa da Malha Fundiária":
+#     st.title("").markdown(
+#         "## Mapa da Malha Fundiária",
+#         unsafe_allow_html=True,
+#     )
+#     mapa_interativo()
+
+# elif st.session_state.current_page == "Mapa de Concentração Fundiária":
+#     st.title("").markdown(
+#         "## Mapa de Concentração Fundiária do Ceará",
+#         unsafe_allow_html=True,
+#     )
+#     mapa_gini(dados_fundiarios, contorno_municipios)
+
+# elif st.session_state.current_page == "Mapa Hidrografico":
+#     st.title("").markdown(
+#         "## Mapa Hidrográfico",
+#         unsafe_allow_html=True,
+#     )
+#     mapa_hidrográfico()
+# elif st.session_state.current_page == "Mapa de Assentamento":
+#     st.title("").markdown(
+#         "## Mapa de Assentamentos",
+#         unsafe_allow_html=True,
+#     )
+#     mapa_Assentamentos()
+
+# elif st.session_state.current_page == "Mapa Escolas do Campo":
+#     st.title("").markdown(
+#         "## Mapa Escolas do Campo",
+#         unsafe_allow_html=True,
+#     )
+#     mapa_escolas_do_campo()  
+
+
+# elif st.session_state.current_page == "Sobre":
+#     # st.title("").markdown("## Sobre")
+#     sobre()

@@ -1,160 +1,247 @@
 # modules/data_loader.py
 
+
 import os
+import json
+import requests
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-from shapely import wkt
-import unicodedata
+from typing import Dict, List, Any, Optional
 
-_DATA_PREFIX    = 'dataset-malha-fundiaria-idace_preprocessado-'
-_DATA_SUFFIX    = '.csv'
-_MUNI_GEOJSON   = 'geojson-municipios_ceara-normalizado.geojson'
+import jwt
+from datetime import datetime, timedelta
 
-
-def get_latest_dataset(base_folder: str) -> str:
-    files = [f for f in os.listdir(base_folder)
-             if f.startswith(_DATA_PREFIX) and f.endswith(_DATA_SUFFIX)]
-    if not files:
-        raise FileNotFoundError(f"Nenhum dataset encontrado em {base_folder}")
-    files.sort()
-    return os.path.join(base_folder, files[-1])
-
-@st.cache_data
-def load_csv_data(base_folder: str) -> pd.DataFrame:
-    """
-    Lê o CSV mais recente, faz as conversões e classifica cada parcela
-    em 'categoria', retornando um DataFrame com colunas:
-    ['modulo_fiscal','area','geometry','nome_municipio',
-     'regiao_administrativa','municipio_norm','categoria']
-    """
-    path = get_latest_dataset(base_folder)
-    df   = pd.read_csv(path, low_memory=False)
-
-    for col in ['modulo_fiscal','area','geom','nome_municipio','regiao_administrativa']:
-        if col not in df.columns:
-            raise KeyError(f"Coluna obrigatória '{col}' não encontrada.")
-
-    df['modulo_fiscal'] = df['modulo_fiscal'].astype(float)
-    df['area']          = df['area'].astype(float)
-
-    df = df[df['geom'].notna()].copy()
-    df['geometry'] = df['geom'].apply(wkt.loads)
-
-    # normaliza nome do município
-    df['municipio_norm'] = df['nome_municipio'].apply(
-        lambda s: unicodedata.normalize('NFKD', s)
-                         .encode('ASCII','ignore')
-                         .decode().lower()
-    )
-
-    # classifica propriedade
-    mf   = df['modulo_fiscal']
-    area = df['area']
-    df['categoria'] = np.where(
-        area < mf, 'Pequena Propriedade < 1 MF',
-        np.where(area <= 4*mf, 'Pequena Propriedade',
-        np.where(area <=15*mf, 'Média Propriedade','Grande Propriedade'))
-    )
-
-    return df
+JWT_SECRET = st.secrets["JWT_SECRET"]
+JWT_ALGORITHM = "HS256"
 
 
-def load_municipios(base_folder: str) -> gpd.GeoDataFrame:
-    """
-    Lê o GeoJSON de municípios, detecta primeiro 'NM_MUN' e, se não achar,
-    qualquer coluna que contenha 'nm' e 'mun', renomeia-a para 'nome_municipio'
-    e adiciona muni['municipio_norm'].
-    """
-    path = os.path.join(base_folder, _MUNI_GEOJSON)
-    muni = gpd.read_file(path)
-
-    # tenta achar coluna exata 'NM_MUN'
-    col_muni = next((c for c in muni.columns if c.lower() == 'nm_mun'), None)
-    # senão, qualquer 'nm' + 'mun'
-    if col_muni is None:
-        col_muni = next((c for c in muni.columns
-                         if 'nm' in c.lower() and 'mun' in c.lower()), None)
-    if col_muni is None:
-        raise KeyError(f"Nenhuma coluna de município encontrada em: {muni.columns.tolist()}")
-
-    muni = muni.rename(columns={col_muni: 'nome_municipio'})
-    muni['municipio_norm'] = muni['nome_municipio'].apply(
-        lambda s: unicodedata.normalize('NFKD', s)
-                         .encode('ASCII','ignore')
-                         .decode().lower()
-    )
-    return muni.to_crs(epsg=4326)
-
-
-# def validate_data(df: pd.DataFrame):
-#     """
-#     Recebe o df completo (com geometry e categoria) e retorna:
-#       - df_all   (tudo)
-#       - df_class (válidos para classificação)
-#       - df_inter (GeoDataFrame para mapa interativo)
-#       - df_ctx   (válidos para mapa contextual)
-#       - counts   (dicionário de totais e descartados)
-#     """
-#     total       = len(df)
-#     df_class    = df.dropna(subset=['modulo_fiscal','area'])
-#     # criar GeoDataFrame para mapa interativo
-#     df_inter    = df_class.dropna(subset=['geometry']).copy()
-#     df_inter    = gpd.GeoDataFrame(df_inter, geometry='geometry', crs='EPSG:4326')
-#     df_ctx      = df_class.dropna(subset=['municipio_norm'])
-
-#     counts      = {
-#         'total_carregados':       total,
-#         'validos_classificacao': len(df_class),
-#         'validos_mapa_interativo': len(df_inter),
-#         'validos_mapa_contextual': len(df_ctx),
-#         'descartados':            total - len(df_class)
-#     }
-#     return df, df_class, df_inter, df_ctx, counts
-def validate_data(df: pd.DataFrame):
-    """
-    Recebe DataFrame de load_csv_data e retorna:
-      - df_all   : DataFrame completo
-      - df_class : DataFrame filtrado para classificação
-      - gdf_inter: GeoDataFrame pronto para mapa interativo
-      - df_ctx   : DataFrame para mapa contextual
-      - counts   : dict de totais e descartados
-    """
-    total = len(df)
-
-    # 1) Filtra entradas com area e modulo_fiscal
-    df_class = df.dropna(subset=['modulo_fiscal', 'area']).copy()
-
-    # 2) Prepara GeoDataFrame para o mapa interativo
-    df_inter = df_class.copy()
-    # Converte WKT → shapely geometry
-    df_inter['geometry'] = df_inter['geom'].apply(lambda w: wkt.loads(w) if pd.notna(w) else None)
-    df_inter = df_inter.dropna(subset=['geometry'])
-    # Monta GeoDataFrame e projeta para WGS84
-    gdf_inter = gpd.GeoDataFrame(df_inter, geometry='geometry', crs='EPSG:31984')
-    gdf_inter = gdf_inter.to_crs(epsg=4326)
-
-    # 3) Classifica categorias direto no GeoDataFrame
-    conds = [
-        (gdf_inter['area'] > 0) & (gdf_inter['area'] < gdf_inter['modulo_fiscal']),
-        (gdf_inter['area'] >= gdf_inter['modulo_fiscal']) & (gdf_inter['area'] <= 4 * gdf_inter['modulo_fiscal']),
-        (gdf_inter['area'] > 4 * gdf_inter['modulo_fiscal']) & (gdf_inter['area'] <= 15 * gdf_inter['modulo_fiscal']),
-        (gdf_inter['area'] > 15 * gdf_inter['modulo_fiscal'])
-    ]
-    cats = ['Pequena Propriedade < 1 MF', 'Pequena Propriedade', 'M\u00e9dia Propriedade', 'Grande Propriedade']
-    gdf_inter['categoria'] = np.select(conds, cats, default='Sem Classificação')
-
-    # 4) Prepara dados para o mapa contextual
-    df_ctx = df_class.dropna(subset=['municipio_norm']).copy()
-
-    # 5) Contagens de validação
-    counts = {
-        'total_carregados': total,
-        'validos_classificacao': len(df_class),
-        'validos_mapa_interativo': len(gdf_inter),
-        'validos_mapa_contextual': len(df_ctx),
-        'descartados': total - len(df_class)
+def create_jwt_token():
+    expiration = datetime.utcnow() + timedelta(minutes=30)
+    payload = {
+        "exp": expiration,
+        "iat": datetime.utcnow(),
+        "sub": "streamlit_app"
     }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-    return df, df_class, gdf_inter, df_ctx, counts
+# Configuração ajustável da API
+DATA_SERVICE_URL = os.getenv("DATA_SERVICE_URL", "http://localhost:8000")
+REQUEST_TIMEOUT = 120  # segundos
+
+@st.cache_data(ttl=86400)
+def _fetch_from_api(endpoint: str, params: Optional[Dict] = None) -> Any:
+    """Helper function com tratamento robusto de erros"""
+    try:
+        st.session_state.setdefault('api_calls', 0)
+        st.session_state.api_calls += 1
+
+        token = create_jwt_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        response = requests.get(
+            f"{DATA_SERVICE_URL}/{endpoint}",
+            params=params,
+            headers=headers,
+            timeout=REQUEST_TIMEOUT
+        )
+        
+        # Verificação especial para evitar erro com endpoint /version
+        if endpoint == "version":
+            if response.status_code == 404:
+                return {'data_version': '1.0.0-default'}  # Versão padrão
+            response.raise_for_status()
+            return response.json()
+        else:
+            response.raise_for_status()
+            return response.json()
+            
+    except requests.exceptions.RequestException as e:
+        if endpoint == "version":
+            return {'data_version': '1.0.0-fallback'}  # Versão de fallback
+        
+        # Fallback para dados locais se disponível
+        if os.path.exists(f"backup/{endpoint}.json"):
+            with open(f"backup/{endpoint}.json") as f:
+                return json.load(f)
+        st.error(f"Erro ao acessar endpoint {endpoint}: {str(e)}")
+        raise
+
+@st.cache_data(ttl=3600)
+def _fetch_regiao_data(regiao: str) -> List[Dict]:
+    """Busca dados de uma região específica"""
+    try:
+        data = _fetch_from_api("dados_fundiarios", {"regiao": regiao})
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+@st.cache_data(ttl=3600)
+def _fetch_all_regions_data(regions: List[str]) -> List[Dict]:
+    """Busca dados de todas as regiões"""
+    all_data = []
+    for region in regions:
+        try:
+            region_data = _fetch_regiao_data(region)
+            if region_data:
+                all_data.extend(region_data)
+        except Exception:
+            continue
+    return all_data
+
+@st.cache_data(ttl=3600)
+def load_csv_data(base_folder: str) -> pd.DataFrame:
+    """Carrega dados principais"""
+    try:
+        # Busca dados básicos sem depender do endpoint /version
+        regions = _fetch_from_api("regioes").get("regioes", [])
+        all_data = _fetch_all_regions_data(regions)
+        
+        if not all_data:
+            st.error("Nenhum dado foi carregado - verifique a conexão com a API")
+            return pd.DataFrame()
+
+        # Cria DataFrame otimizado
+        df = pd.DataFrame(all_data, columns=[
+            'imovel','data_criacao_lote', 'numero_incra',
+            'numero_lote', 'area','situacao_juridica','regiao_administrativa',
+            'nome_municipio_original', 'nome_distrito','ponto_de_referencia',
+            'categoria', 'geometry', 'nome_municipio','modulo_fiscal','lote_id', 'nome_proprietario'
+        ])
+        
+        # Conversão de tipos segura
+        numeric_cols = ['modulo_fiscal', 'area']
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+        return df.convert_dtypes()
+        
+    except Exception as e:
+        st.error(f"Falha crítica ao carregar dados: {str(e)}")
+        return pd.DataFrame()
+
+@st.cache_data(ttl=86400)
+def _fetch_municipality_geojson(municipio: str) -> Dict:
+    """Busca GeoJSON individual com fallback"""
+    try:
+        return _fetch_from_api(
+            "geojson_muni", 
+            {"municipio": municipio, "tolerance": 0.01}
+        ) or {}
+    except Exception:
+        return {}
+
+@st.cache_resource(ttl=86400)
+def load_municipios(base_folder: str) -> gpd.GeoDataFrame:
+    """Carrega municípios com fallback robusto"""
+    try:
+        muni_list = _fetch_from_api("municipios_todos").get("municipios", [])
+        features = []
+        
+        for muni in muni_list:
+            geojson = _fetch_municipality_geojson(muni)
+            if geojson and 'features' in geojson:
+                features.extend(geojson['features'])
+        
+        if not features:
+            st.warning("Nenhuma geometria de município carregada")
+            return gpd.GeoDataFrame()
+            
+        return gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
+        
+    except Exception as e:
+        st.error(f"Falha ao carregar municípios: {str(e)}")
+        return gpd.GeoDataFrame()
+
+@st.cache_resource
+def validate_data(df: pd.DataFrame) -> tuple:
+    """Validação com tratamento de erros"""
+    if df.empty:
+        return pd.DataFrame(), pd.DataFrame(), None, pd.DataFrame(), {}
+    
+    try:
+        df_class = df.dropna(subset=['modulo_fiscal', 'area']).copy()
+        
+        conditions = [
+            (df_class['area'] < df_class['modulo_fiscal']),
+            (df_class['area'] <= 4 * df_class['modulo_fiscal']),
+            (df_class['area'] <= 15 * df_class['modulo_fiscal']),
+            (df_class['area'] > 15 * df_class['modulo_fiscal'])
+        ]
+        choices = [
+            'Pequena Propriedade < 1 MF',
+            'Pequena Propriedade', 
+            'Média Propriedade',
+            'Grande Propriedade'
+        ]
+        df_class['categoria'] = np.select(conditions, choices, default='Sem Classificação')
+        
+        counts = {
+            'total_carregados': len(df),
+            'validos_classificacao': len(df_class),
+            'validos_mapa_contextual': df_class['nome_municipio'].notna().sum(),
+            'descartados': len(df) - len(df_class),
+            'versao_dados': _fetch_from_api("version").get('data_version', 'desconhecida')
+        }
+        
+        return (
+            df,
+            df_class,
+            None,  # Geometrias serão carregadas sob demanda
+            df_class.dropna(subset=['nome_municipio']),
+            counts
+        )
+        
+    except Exception as e:
+        st.error(f"Erro na validação dos dados: {str(e)}")
+        return df, df, None, df, {}
+
+
+@st.cache_data(ttl=7200)
+def fetch_regioes() -> list[str]:
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{DATA_SERVICE_URL}/regioes", headers=headers, timeout=20)
+    resp.raise_for_status()
+    return resp.json().get("regioes", [])
+
+@st.cache_data(ttl=7200)
+def fetch_municipios(regiao: str) -> list[str]:
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{DATA_SERVICE_URL}/municipios", params={"regiao": regiao}, headers=headers, timeout=20)
+    if resp.status_code == 404:
+        return []
+    resp.raise_for_status()
+    return resp.json().get("municipios", [])
+
+@st.cache_data(ttl=1200)
+def fetch_geojson_por_regiao(regiao: str) -> dict:
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{DATA_SERVICE_URL}/geojson", params={"regiao": regiao}, headers=headers, timeout=20)
+    resp.raise_for_status()
+    return resp.json()
+
+@st.cache_data(ttl=1200)
+def fetch_geojson_por_municipio(municipio: str) -> dict:
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = requests.get(f"{DATA_SERVICE_URL}/geojson", params={"municipio": municipio}, headers=headers, timeout=20)
+    resp.raise_for_status()
+    return resp.json()
+
+@st.cache_data(ttl=7200)
+def fetch_geojson_limites(municipio: str) -> dict:
+    """
+    Chama GET /geojson_muni?municipio=YYY e retorna o FeatureCollection do município (limite administrativo).
+    """
+    token = create_jwt_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    
+    resp = requests.get(f"{DATA_SERVICE_URL}/geojson_muni", params={"municipio": municipio}, headers=headers, timeout=20)
+    resp.raise_for_status()
+    return resp.json()
