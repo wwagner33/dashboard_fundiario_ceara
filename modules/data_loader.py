@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-from shapely import wkt
+from shapely import wkt, wkb
 import unicodedata
 
 _DATA_PREFIX    = 'dataset-malha-fundiaria-idace_preprocessado-'
@@ -32,12 +32,24 @@ def load_csv_data(base_folder: str) -> pd.DataFrame:
     path = get_latest_dataset(base_folder)
     df   = pd.read_csv(path, low_memory=False)
 
+    # Exports mais recentes trazem a geometria em WKB-hex nas colunas
+    # 'geometry_31984' (EPSG:31984, a mesma projeção que o pipeline abaixo
+    # já espera) em vez de uma coluna 'geom' em WKT — deriva 'geom' a
+    # partir dela quando necessário, sem mudar o resto do pipeline.
+    if 'geom' not in df.columns and 'geometry_31984' in df.columns:
+        df['geom'] = df['geometry_31984'].apply(
+            lambda h: wkb.loads(bytes.fromhex(h)).wkt if pd.notna(h) else None
+        )
+
     for col in ['modulo_fiscal','area','geom','nome_municipio','regiao_administrativa']:
         if col not in df.columns:
             raise KeyError(f"Coluna obrigatória '{col}' não encontrada.")
 
-    df['modulo_fiscal'] = df['modulo_fiscal'].astype(float)
-    df['area']          = df['area'].astype(float)
+    # coerce em vez de astype: uma fração mínima de linhas do export tem
+    # colunas deslocadas (vírgula não escapada em algum campo de texto);
+    # viram NaN aqui e são descartadas mais adiante por validate_data
+    df['modulo_fiscal'] = pd.to_numeric(df['modulo_fiscal'], errors='coerce')
+    df['area']          = pd.to_numeric(df['area'], errors='coerce')
 
     df = df[df['geom'].notna()].copy()
     df['geometry'] = df['geom'].apply(wkt.loads)
