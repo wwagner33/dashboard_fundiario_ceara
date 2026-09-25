@@ -58,6 +58,9 @@ services:
     environment:
       - TZ=America/Fortaleza
       - DATA_SERVICE_URL=http://tgdmserver:8000 # http://tgdmserver.virtual.ufc.br:8000
+      # API key dos basemaps raster da CARTO. Se ficar vazia, o dashboard
+      # usa OpenStreetMap como camada base em vez de exibir a marca d'agua.
+      - CARTO_API_KEY=${CARTO_API_KEY}
     ports:
       - "8501:8501"
     networks:

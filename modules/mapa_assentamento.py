@@ -8,6 +8,7 @@ from typing import Optional
 import math
 
 from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
+from modules.basemap import criar_mapa
 
 
 import jwt
@@ -79,10 +80,9 @@ def carregar_geojson(municipio: str = "todos", tipo: str = "todos", tolerancia: 
 
 def criar_mapa_base() -> folium.Map:
     """Cria um mapa Folium base com configurações padrão"""
-    return folium.Map(
+    return criar_mapa(
         location=CENTRO_CEARA,
         zoom_start=ZOOM_PADRAO,
-        tiles="cartodbpositron",
         control_scale=True,
         prefer_canvas=True
     )

@@ -13,6 +13,8 @@ import os
 import json
 import pandas as pd
 
+from modules.basemap import criar_mapa
+
 import jwt
 from datetime import datetime, timedelta
 
@@ -150,10 +152,9 @@ def formatar_valor(valor):
 
 # --- Camadas do mapa ---
 def criar_mapa_base() -> folium.Map:
-    return folium.Map(
+    return criar_mapa(
         location=CENTRO_CEARA,
         zoom_start=ZOOM_PADRAO,
-        tiles="cartodbpositron", 
         control_scale=True,
         prefer_canvas=True
     )

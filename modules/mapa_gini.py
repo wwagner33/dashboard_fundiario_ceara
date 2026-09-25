@@ -9,6 +9,7 @@ from shapely.geometry import Polygon, MultiPolygon
 from streamlit_folium import st_folium
 from folium.plugins import MiniMap, Fullscreen
 from modules.mapa_reservatorios import adicionar_camada_municipios, carregar_municipios
+from modules.basemap import criar_mapa
 from public.cores import CORES_GINI
 import unicodedata
 import os
@@ -155,7 +156,7 @@ def style_fn(f):
 # Renderização de mapas com clique habilitado
 def render_map(tab, geo_df):
     with tab:
-        m = folium.Map(location=[-5.2, -39.5], zoom_start=8, tiles="cartodbpositron", control_scale=True, prefer_canvas=True)
+        m = criar_mapa(location=[-5.2, -39.5], zoom_start=8, control_scale=True, prefer_canvas=True)
         if "geo_muni" not in st.session_state:
             st.session_state.geo_muni = carregar_municipios("todos")
         adicionar_camada_municipios(m, st.session_state.geo_muni)

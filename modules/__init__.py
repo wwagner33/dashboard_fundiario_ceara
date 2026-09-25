@@ -1,5 +1,11 @@
 # modules/__init__.py
 
+from .basemap import (
+    get_carto_api_key,
+    basemap_tiles,
+    adicionar_basemap,
+    criar_mapa
+)
 from .data_loader import (
     load_csv_data,
     load_municipios,
@@ -40,13 +46,19 @@ from .mapa_escolas import (
 )
 
 # Version of the modules package
-__version__ = "1.0.0"
+__version__ = "1.1.1"
 
 
 
 __all__ = [
+    # Basemap (camada base dos mapas / API key da CARTO)
+    "get_carto_api_key",
+    "basemap_tiles",
+    "adicionar_basemap",
+    "criar_mapa",
+
     # Data loading and validation
-    "load_csv_data", 
+    "load_csv_data",
     "load_municipios", 
     "validate_data",
     

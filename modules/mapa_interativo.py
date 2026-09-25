@@ -164,8 +164,9 @@ from modules.data_loader import (
     fetch_geojson_por_regiao, fetch_geojson_por_municipio,
     fetch_geojson_limites
 )
+from modules.basemap import adicionar_basemap
 
-from public.cores import CORES 
+from public.cores import CORES
 
 def convert_hex_to_geojson(geojson_data):
     """
@@ -276,13 +277,7 @@ def render_view_mapa_interativo():
 
     m = folium.Map(location=center, zoom_start=9, tiles=None, control_scale=True)
 
-    folium.TileLayer(
-        tiles='https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        attr='© OpenStreetMap contributors, © CARTO',
-        name='OpenpenStreetMap',
-        control=False,
-        overlay=True
-    ).add_to(m)
+    adicionar_basemap(m, estilo="voyager")
 
     if boundary_geojson and boundary_geojson.get("features"):
         # Também converter boundaries se necessário

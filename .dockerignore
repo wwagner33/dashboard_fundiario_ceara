@@ -5,3 +5,14 @@ __pycache__/
 .vscode/
 *.sqlite
 *.csv
+
+# O .env e consumido pelo docker-compose no host, nunca pela aplicacao dentro
+# do container. Mante-lo fora da imagem evita publicar segredos no Docker Hub.
+.env
+
+# Peso morto no contexto de build: o venv local (~680 MB) nao e usado dentro do
+# container, que instala as dependencias via requirements.txt.
+.venv/
+.git/
+.pytest_cache/
+.claude/
