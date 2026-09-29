@@ -22,7 +22,7 @@ from modules import basemap
 
 
 @pytest.fixture(autouse=True)
-def _sem_snapshot_do_ambiente(monkeypatch):
+def _semSnapshotDoAmbiente(monkeypatch):
     """Zera o valor capturado na importação do módulo.
 
     `basemap` guarda a variável de ambiente lida no import; sem zerar isso, o
@@ -32,7 +32,7 @@ def _sem_snapshot_do_ambiente(monkeypatch):
 
 
 @pytest.fixture
-def sem_secrets(monkeypatch):
+def semSecrets(monkeypatch):
     """Remove a chave do ambiente e de st.secrets."""
     monkeypatch.delenv("CARTO_API_KEY", raising=False)
     monkeypatch.setattr(
@@ -41,7 +41,7 @@ def sem_secrets(monkeypatch):
 
 
 @pytest.fixture
-def com_env(monkeypatch):
+def comEnv(monkeypatch):
     monkeypatch.setenv("CARTO_API_KEY", "chave_do_ambiente")
     return "chave_do_ambiente"
 
@@ -50,41 +50,41 @@ def com_env(monkeypatch):
 # Origem da chave
 # ---------------------------------------------------------------------------
 
-def test_chave_vem_da_variavel_de_ambiente(sem_secrets, com_env):
-    assert basemap.get_carto_api_key() == "chave_do_ambiente"
+def test_chaveVemDaVariavelDeAmbiente(semSecrets, comEnv):
+    assert basemap.obterChaveCarto() == "chave_do_ambiente"
 
 
-def test_chave_vem_de_st_secrets_quando_nao_ha_env(monkeypatch):
+def test_chaveVemDeStSecretsQuandoNaoHaEnv(monkeypatch):
     monkeypatch.delenv("CARTO_API_KEY", raising=False)
     monkeypatch.setattr(
         basemap.st, "secrets", {"CARTO_API_KEY": "chave_do_secrets"}, raising=False
     )
-    assert basemap.get_carto_api_key() == "chave_do_secrets"
+    assert basemap.obterChaveCarto() == "chave_do_secrets"
 
 
-def test_variavel_de_ambiente_tem_precedencia_sobre_secrets(monkeypatch):
+def test_variavelDeAmbienteTemPrecedenciaSobreSecrets(monkeypatch):
     monkeypatch.setenv("CARTO_API_KEY", "chave_do_ambiente")
     monkeypatch.setattr(
         basemap.st, "secrets", {"CARTO_API_KEY": "chave_do_secrets"}, raising=False
     )
-    assert basemap.get_carto_api_key() == "chave_do_ambiente"
+    assert basemap.obterChaveCarto() == "chave_do_ambiente"
 
 
-def test_sem_chave_configurada_retorna_none(sem_secrets):
-    assert basemap.get_carto_api_key() is None
+def test_semChaveConfiguradaRetornaNone(semSecrets):
+    assert basemap.obterChaveCarto() is None
 
 
-def test_chave_vazia_ou_so_espacos_conta_como_ausente(sem_secrets, monkeypatch):
+def test_chaveVaziaOuSoEspacosContaComoAusente(semSecrets, monkeypatch):
     monkeypatch.setenv("CARTO_API_KEY", "   ")
-    assert basemap.get_carto_api_key() is None
+    assert basemap.obterChaveCarto() is None
 
 
-def test_chave_vazia_em_st_secrets_conta_como_ausente(monkeypatch):
+def test_chaveVaziaEmStSecretsContaComoAusente(monkeypatch):
     monkeypatch.delenv("CARTO_API_KEY", raising=False)
     monkeypatch.setattr(basemap.st, "secrets", {"CARTO_API_KEY": ""}, raising=False)
-    assert basemap.get_carto_api_key() is None
+    assert basemap.obterChaveCarto() is None
 
-    url, _ = basemap.basemap_tiles("positron")
+    url, _ = basemap.obterTilesBasemap("positron")
     assert "openstreetmap.org" in url
 
 
@@ -96,18 +96,18 @@ def test_chave_vazia_em_st_secrets_conta_como_ausente(monkeypatch):
 # sem nenhum erro visível.
 # ---------------------------------------------------------------------------
 
-def test_secrets_vazio_nao_apaga_a_chave_do_ambiente(monkeypatch):
+def test_secretsVazioNaoApagaAChaveDoAmbiente(monkeypatch):
     monkeypatch.setattr(basemap, "_CARTO_API_KEY_DO_AMBIENTE", "chave_do_portainer")
     # Estado após o Streamlit ter copiado o secrets.toml vazio para os.environ.
     monkeypatch.setenv("CARTO_API_KEY", "")
     monkeypatch.setattr(basemap.st, "secrets", {"CARTO_API_KEY": ""}, raising=False)
 
-    assert basemap.get_carto_api_key() == "chave_do_portainer"
-    url, _ = basemap.basemap_tiles("positron")
+    assert basemap.obterChaveCarto() == "chave_do_portainer"
+    url, _ = basemap.obterTilesBasemap("positron")
     assert "key=chave_do_portainer" in url
 
 
-def test_secrets_desatualizado_nao_sobrepoe_a_chave_do_ambiente(monkeypatch):
+def test_secretsDesatualizadoNaoSobrepoeAChaveDoAmbiente(monkeypatch):
     monkeypatch.setattr(basemap, "_CARTO_API_KEY_DO_AMBIENTE", "chave_do_portainer")
     # O Streamlit teria sobrescrito os.environ com a chave antiga do arquivo.
     monkeypatch.setenv("CARTO_API_KEY", "chave_antiga_do_secrets")
@@ -115,10 +115,10 @@ def test_secrets_desatualizado_nao_sobrepoe_a_chave_do_ambiente(monkeypatch):
         basemap.st, "secrets", {"CARTO_API_KEY": "chave_antiga_do_secrets"}, raising=False
     )
 
-    assert basemap.get_carto_api_key() == "chave_do_portainer"
+    assert basemap.obterChaveCarto() == "chave_do_portainer"
 
 
-def test_sem_ambiente_a_chave_do_secrets_ainda_e_usada(monkeypatch):
+def test_semAmbienteAChaveDoSecretsAindaEUsada(monkeypatch):
     """No dev local não há variável de ambiente, e o secrets.toml deve valer."""
     monkeypatch.setattr(basemap, "_CARTO_API_KEY_DO_AMBIENTE", None)
     monkeypatch.delenv("CARTO_API_KEY", raising=False)
@@ -126,18 +126,13 @@ def test_sem_ambiente_a_chave_do_secrets_ainda_e_usada(monkeypatch):
         basemap.st, "secrets", {"CARTO_API_KEY": "chave_local"}, raising=False
     )
 
-    assert basemap.get_carto_api_key() == "chave_local"
+    assert basemap.obterChaveCarto() == "chave_local"
 
 
-def test_secrets_toml_do_projeto_nao_declara_carto_api_key():
+def test_secretsTomlDoProjetoNaoDeclaraCartoApiKey():
     """Garante que o arquivo real em disco não reintroduza a sobrescrita."""
-    import sys
+    import tomllib
     from pathlib import Path
-
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:  # pragma: no cover
-        import tomli as tomllib
 
     caminho = Path(__file__).resolve().parent.parent / ".streamlit" / "secrets.toml"
     if not caminho.is_file():
@@ -153,12 +148,12 @@ def test_secrets_toml_do_projeto_nao_declara_carto_api_key():
     )
 
 
-def test_chave_do_ambiente_e_normalizada(sem_secrets, monkeypatch):
+def test_chaveDoAmbienteENormalizada(semSecrets, monkeypatch):
     monkeypatch.setenv("CARTO_API_KEY", "  chave_com_espacos  ")
-    assert basemap.get_carto_api_key() == "chave_com_espacos"
+    assert basemap.obterChaveCarto() == "chave_com_espacos"
 
 
-def test_st_secrets_ausente_nao_quebra(monkeypatch):
+def test_stSecretsAusenteNaoQuebra(monkeypatch):
     """Streamlit levanta exceção ao ler secrets quando não há secrets.toml."""
     monkeypatch.delenv("CARTO_API_KEY", raising=False)
 
@@ -167,21 +162,21 @@ def test_st_secrets_ausente_nao_quebra(monkeypatch):
             raise FileNotFoundError("nenhum secrets.toml neste ambiente")
 
     monkeypatch.setattr(basemap.st, "secrets", SecretsQuebrado(), raising=False)
-    assert basemap.get_carto_api_key() is None
+    assert basemap.obterChaveCarto() is None
 
 
 # ---------------------------------------------------------------------------
 # URL dos tiles
 # ---------------------------------------------------------------------------
 
-def test_url_carrega_a_api_key(sem_secrets, com_env):
-    url, _ = basemap.basemap_tiles("positron")
+def test_urlCarregaAApiKey(semSecrets, comEnv):
+    url, _ = basemap.obterTilesBasemap("positron")
     assert "basemaps.cartocdn.com" in url
     assert url.endswith("?key=chave_do_ambiente")
 
 
-def test_url_preserva_placeholders_do_leaflet(sem_secrets, com_env):
-    url, _ = basemap.basemap_tiles("positron")
+def test_urlPreservaPlaceholdersDoLeaflet(semSecrets, comEnv):
+    url, _ = basemap.obterTilesBasemap("positron")
     for placeholder in ("{z}", "{x}", "{y}"):
         assert placeholder in url
 
@@ -195,18 +190,18 @@ def test_url_preserva_placeholders_do_leaflet(sem_secrets, com_env):
         ("voyager", "/rastertiles/voyager/"),
     ],
 )
-def test_cada_estilo_aponta_para_o_caminho_certo(sem_secrets, com_env, estilo, trecho):
-    url, _ = basemap.basemap_tiles(estilo)
+def test_cadaEstiloApontaParaOCaminhoCerto(semSecrets, comEnv, estilo, trecho):
+    url, _ = basemap.obterTilesBasemap(estilo)
     assert trecho in url
 
 
-def test_estilo_desconhecido_levanta_erro(sem_secrets, com_env):
+def test_estiloDesconhecidoLevantaErro(semSecrets, comEnv):
     with pytest.raises(ValueError):
-        basemap.basemap_tiles("estilo_que_nao_existe")
+        basemap.obterTilesBasemap("estilo_que_nao_existe")
 
 
-def test_atribuicao_da_carto_presente_quando_ha_chave(sem_secrets, com_env):
-    _, attr = basemap.basemap_tiles("positron")
+def test_atribuicaoDaCartoPresenteQuandoHaChave(semSecrets, comEnv):
+    _, attr = basemap.obterTilesBasemap("positron")
     assert "CARTO" in attr
     assert "OpenStreetMap" in attr
 
@@ -215,15 +210,15 @@ def test_atribuicao_da_carto_presente_quando_ha_chave(sem_secrets, com_env):
 # Alternativa sem chave
 # ---------------------------------------------------------------------------
 
-def test_sem_chave_cai_para_openstreetmap(sem_secrets):
-    url, attr = basemap.basemap_tiles("positron")
+def test_semChaveCaiParaOpenstreetmap(semSecrets):
+    url, attr = basemap.obterTilesBasemap("positron")
     assert "openstreetmap.org" in url
     assert "cartocdn" not in url
     assert "OpenStreetMap" in attr
 
 
-def test_alternativa_nao_carrega_parametro_key(sem_secrets):
-    url, _ = basemap.basemap_tiles("voyager")
+def test_alternativaNaoCarregaParametroKey(semSecrets):
+    url, _ = basemap.obterTilesBasemap("voyager")
     assert "key=" not in url
 
 
@@ -231,16 +226,16 @@ def test_alternativa_nao_carrega_parametro_key(sem_secrets):
 # Integração com folium
 # ---------------------------------------------------------------------------
 
-def test_criar_mapa_renderiza_url_com_a_chave(sem_secrets, com_env):
-    mapa = basemap.criar_mapa(location=[-5.2, -39.5], zoom_start=8)
+def test_criarMapaRenderizaUrlComAChave(semSecrets, comEnv):
+    mapa = basemap.criarMapa(location=[-5.2, -39.5], zoom_start=8)
     html = mapa.get_root().render()
     assert "key=chave_do_ambiente" in html
 
 
-def test_criar_mapa_ignora_tiles_passado_pelo_chamador(sem_secrets, com_env):
+def test_criarMapaIgnoraTilesPassadoPeloChamador(semSecrets, comEnv):
     """Evita que uma chamada antiga com tiles="cartodbpositron" volte a montar
     a URL sem a API key."""
-    mapa = basemap.criar_mapa(
+    mapa = basemap.criarMapa(
         location=[-5.2, -39.5], zoom_start=8, tiles="cartodbpositron"
     )
     html = mapa.get_root().render()
@@ -248,8 +243,8 @@ def test_criar_mapa_ignora_tiles_passado_pelo_chamador(sem_secrets, com_env):
     assert "cartodb-basemaps" not in html
 
 
-def test_criar_mapa_nao_adiciona_camada_base_duplicada(sem_secrets, com_env):
-    mapa = basemap.criar_mapa(location=[-5.2, -39.5], zoom_start=8)
+def test_criarMapaNaoAdicionaCamadaBaseDuplicada(semSecrets, comEnv):
+    mapa = basemap.criarMapa(location=[-5.2, -39.5], zoom_start=8)
     camadas = [
         filho
         for filho in mapa._children.values()
@@ -258,24 +253,24 @@ def test_criar_mapa_nao_adiciona_camada_base_duplicada(sem_secrets, com_env):
     assert len(camadas) == 1
 
 
-def test_api_key_nao_vira_rotulo_no_controle_de_camadas(sem_secrets, com_env):
+def test_apiKeyNaoViraRotuloNoControleDeCamadas(semSecrets, comEnv):
     """Sem `name` explícito o folium usaria a URL do tile como nome da camada,
     exibindo a API key no controle de camadas."""
-    mapa = basemap.criar_mapa(location=[-5.2, -39.5], zoom_start=8)
+    mapa = basemap.criarMapa(location=[-5.2, -39.5], zoom_start=8)
     folium.LayerControl().add_to(mapa)
     html = mapa.get_root().render()
     assert "chave_do_ambiente" not in html.split("base_layers")[-1][:2000]
 
 
-def test_adicionar_basemap_devolve_a_camada(sem_secrets, com_env):
+def test_adicionarBasemapDevolveACamada(semSecrets, comEnv):
     mapa = folium.Map(location=[-5.2, -39.5], zoom_start=8, tiles=None)
-    camada = basemap.adicionar_basemap(mapa, estilo="voyager")
+    camada = basemap.adicionarBasemap(mapa, estilo="voyager")
     assert isinstance(camada, folium.TileLayer)
     assert camada.get_name() in {c.get_name() for c in mapa._children.values()}
 
 
-def test_criar_mapa_repassa_opcoes_do_folium(sem_secrets, com_env):
-    mapa = basemap.criar_mapa(
+def test_criarMapaRepassaOpcoesDoFolium(semSecrets, comEnv):
+    mapa = basemap.criarMapa(
         location=[-5.2, -39.5], zoom_start=8, control_scale=True, prefer_canvas=True
     )
     assert mapa.location == [-5.2, -39.5]

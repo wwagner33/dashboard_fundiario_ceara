@@ -16,3 +16,16 @@ __pycache__/
 .git/
 .pytest_cache/
 .claude/
+
+# Segredos nunca entram na imagem. Em produção, JWT_SECRET vem do ambiente (Portainer).
+.streamlit/secrets.toml
+
+# Não fazem parte do app em execução.
+tests/
+doc/
+scripts/
+ruff.toml
+*.in
+
+# Arquivos sem uso aguardando revisao local
+arquivos-sem-uso/

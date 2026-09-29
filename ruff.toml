@@ -1,0 +1,26 @@
+# Configuração do ruff para o dashboard.
+# A convenção de nomes do projeto é camelCase (ver doc/plano_melhoria_codigo.md),
+# então as regras do pep8-naming que exigem snake_case ficam desligadas. O teste
+# tests/test_convencaoNomes.py cobra o camelCase.
+line-length = 130
+target-version = "py313"
+extend-exclude = ["arquivos-sem-uso", ".venv"]
+
+[lint]
+select = ["F", "E9", "B", "N", "UP", "SIM"]
+ignore = [
+    "N802",  # nome de função em snake_case
+    "N803",  # nome de argumento em snake_case
+    "N806",  # variável local em snake_case
+    "N815",  # variável de classe em mixedCase
+    "N816",  # variável global em mixedCase
+    "N999",  # nome de módulo em snake_case
+    "N818",  # exceções seguem o padrão do projeto: ErroApi, ErroConfiguracao
+    "SIM105",  # try/except/pass explícito é mais legível que contextlib.suppress aqui
+]
+
+[lint.per-file-ignores]
+"app.py" = ["E402"]            # set_page_config precisa vir antes das importações do pacote
+"tests/*" = ["E402", "N813"]   # conftest define JWT_SECRET antes de importar; apelidos curtos de módulo
+"modules/paginaInicio.py" = ["E501"]
+"modules/paginaSobre.py" = ["E501"]

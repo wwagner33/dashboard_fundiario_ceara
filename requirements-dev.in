@@ -1,0 +1,4 @@
+# Dependências diretas usadas só em testes e lint.
+pytest
+requests-mock
+ruff

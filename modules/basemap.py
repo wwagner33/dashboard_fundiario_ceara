@@ -22,10 +22,11 @@ o que já estivesse lá. Na prática isso inverte a precedência esperada: um
 ambiente do container e, pior, um valor vazio no arquivo apaga a chave injetada
 pelo Portainer.
 
-Para não depender desse efeito colateral, o valor da variável de ambiente é
-capturado aqui no momento da importação, antes que qualquer leitura de
-``st.secrets`` aconteça. ``modules/__init__.py`` importa este módulo primeiro,
-justamente para garantir essa ordem.
+O ``streamlit run`` faz essa cópia ao iniciar o servidor, antes de importar
+qualquer módulo do app, então capturar a variável na importação não impede a
+sobrescrita em produção. A regra que vale é: **não declare no secrets.toml uma
+chave que venha do ambiente**. A captura na importação continua útil fora do
+servidor, como nos testes.
 
 Se nenhuma das duas estiver definida, o dashboard cai automaticamente para os
 tiles do OpenStreetMap. A escolha é deliberada: é preferível um mapa com outra
@@ -58,7 +59,6 @@ todos os casos (https://carto.com/attributions).
 """
 
 import os
-from typing import Optional, Tuple
 
 import folium
 import streamlit as st
@@ -94,14 +94,14 @@ NOME_CAMADA_PADRAO = "Mapa base"
 _CARTO_API_KEY_DO_AMBIENTE = os.environ.get("CARTO_API_KEY")
 
 
-def _normalizar(valor) -> Optional[str]:
+def _normalizar(valor) -> str | None:
     """Devolve a string sem espaços nas pontas, ou ``None`` se for vazia."""
     if isinstance(valor, str) and valor.strip():
         return valor.strip()
     return None
 
 
-def get_carto_api_key() -> Optional[str]:
+def obterChaveCarto() -> str | None:
     """Devolve a API key da CARTO configurada, ou ``None`` se não houver.
 
     Consulta, nesta ordem: a variável de ambiente capturada na importação, a
@@ -127,7 +127,7 @@ def get_carto_api_key() -> Optional[str]:
     return _normalizar(bruto)
 
 
-def basemap_tiles(estilo: str = ESTILO_PADRAO) -> Tuple[str, str]:
+def obterTilesBasemap(estilo: str = ESTILO_PADRAO) -> tuple[str, str]:
     """Devolve a tupla ``(url_do_tile, atribuicao)`` da camada base.
 
     Com API key configurada, devolve o estilo raster pedido da CARTO já com o
@@ -138,7 +138,7 @@ def basemap_tiles(estilo: str = ESTILO_PADRAO) -> Tuple[str, str]:
         validos = ", ".join(sorted(_CARTO_ESTILOS))
         raise ValueError(f"Estilo de basemap desconhecido: {estilo!r}. Use um de: {validos}.")
 
-    chave = get_carto_api_key()
+    chave = obterChaveCarto()
     if not chave:
         return _OSM_TILES, _OSM_ATTR
 
@@ -146,7 +146,7 @@ def basemap_tiles(estilo: str = ESTILO_PADRAO) -> Tuple[str, str]:
     return url, _CARTO_ATTR
 
 
-def adicionar_basemap(
+def adicionarBasemap(
     mapa: folium.Map,
     estilo: str = ESTILO_PADRAO,
     nome: str = NOME_CAMADA_PADRAO,
@@ -160,7 +160,7 @@ def adicionar_basemap(
     camada no controle de camadas passaria a ser a própria URL do tile, expondo
     a API key na interface.
     """
-    url, attr = basemap_tiles(estilo)
+    url, attr = obterTilesBasemap(estilo)
     camada = folium.TileLayer(
         tiles=url,
         attr=attr,
@@ -173,9 +173,9 @@ def adicionar_basemap(
     return camada
 
 
-def criar_mapa(
+def criarMapa(
     estilo: str = ESTILO_PADRAO,
-    nome_camada: str = NOME_CAMADA_PADRAO,
+    nomeCamada: str = NOME_CAMADA_PADRAO,
     **kwargs,
 ) -> folium.Map:
     """Cria um ``folium.Map`` já com a camada base correta.
@@ -186,5 +186,5 @@ def criar_mapa(
     """
     kwargs.pop("tiles", None)
     mapa = folium.Map(tiles=None, **kwargs)
-    adicionar_basemap(mapa, estilo=estilo, nome=nome_camada)
+    adicionarBasemap(mapa, estilo=estilo, nome=nomeCamada)
     return mapa

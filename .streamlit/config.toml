@@ -1,10 +1,15 @@
 [server]
-maxUploadSize = 200 #em MB
+# O dashboard não recebe upload de arquivos.
+maxUploadSize = 1 #em MB
+# Mantido acima do padrão de 200 MB por causa dos mapas maiores.
 maxMessageSize = 300 #em MB
-maxCacheSize = 2048 #em MB
 enableCORS = false
 headless = true
+# XSRF só protege upload de arquivos, que o app não usa. Reativar exige testar
+# atrás do proxy de produção, porque o Streamlit o desliga quando enableCORS=false.
 enableXsrfProtection = false
+# Valores de desenvolvimento. Na imagem Docker, STREAMLIT_SERVER_RUN_ON_SAVE=false
+# e STREAMLIT_SERVER_FILE_WATCHER_TYPE=none sobrescrevem estes dois.
 runOnSave = true
 fileWatcherType = "auto"
 enableWebsocketCompression = false

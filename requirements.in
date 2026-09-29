@@ -1,0 +1,14 @@
+# Dependências diretas do dashboard. O requirements.txt fixa estas e todas as
+# transitivas nas versões testadas. Para atualizar:
+#   pip install -U -r requirements.in && python -m pytest && python scripts/fixarDependencias.py
+streamlit
+streamlit-folium
+folium
+branca
+pandas
+numpy
+geopandas
+shapely
+matplotlib
+requests
+PyJWT
