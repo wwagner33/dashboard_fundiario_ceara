@@ -1,2 +1,0 @@
-# Cria rede terra_network
-podman network create terra_network
