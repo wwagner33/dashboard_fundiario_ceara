@@ -11,7 +11,7 @@ Cada achado tem `arquivo:linha` conferido no código. **[reproduzido]** indica q
 
 ## Ação urgente
 
-A versão 1.2.0 do miniserver e do dashboard está pronta e testada com os dados reais. Ela corrige a duplicação de assentamentos, reservatórios e regiões a cada reinício do miniserver (B10). Falta publicar as imagens, o que exige login no Docker Hub, e implantar as duas juntas pela stack atualizada. As tags antigas ainda contêm o `JWT_SECRET` e a senha do Postgres: a rotação (T0.4) continua pendente.
+A versão 1.2.0 do miniserver e do dashboard está publicada no Docker Hub e testada com os dados reais. Ela corrige a duplicação de assentamentos, reservatórios e regiões a cada reinício do miniserver (B10). Falta implantar as duas juntas pela stack atualizada. As tags antigas ainda contêm o `JWT_SECRET` e a senha do Postgres: a rotação (T0.4) continua pendente.
 
 ## Decisões registradas
 
@@ -300,17 +300,16 @@ Trilha paralela no miniserver. A atualização mensal depende da importação da
 | TG.3 | integration-tester | parcial | Mecanismo testado localmente: uma carga nova muda a versão e o dashboard recarrega. Falta observar a primeira carga mensal em produção. | Teste ponta a ponta. |
 | TG.6 | Claude | feita | Duplicação B10: cada tabela é trocada inteira numa única transação, e o registro de cargas guarda a data de cada uma. Validado no banco local: um banco já duplicado voltou às contagens corretas. Feito em 30/09. | Reiniciar o container não altera as contagens. |
 | TG.7 | Claude | feita | Terra-AI: o token passou a enviar `aud` e `iss`, validado contra o miniserver novo. Feito em 30/09. | Terra-AI autentica no miniserver 1.2.0. |
-| TG.8 | Humano | pendente | Publicar as imagens 1.2.0 (exige `podman login docker.io`) e implantar miniserver e dashboard juntos, com a stack atualizada. Passos em Próximos passos. | As duas versões no ar e as páginas com dados. |
+| TG.8 | Humano | parcial | Imagens 1.2.0 publicadas em 30/09, com as tags `1.2.0` e `latest`, e conferidas no Docker Hub: sem segredos, sem root e com healthcheck. Falta implantar miniserver e dashboard juntos, com a stack atualizada. Passos em Próximos passos. | As duas versões no ar e as páginas com dados. |
 | TG.4 | miniserver-implementer + dashboard-implementer | feita | Endpoint `/versao_dados`, alimentado pelo registro de cargas do importador. O dashboard confere a versão a cada 5 minutos e descarta o cache quando ela muda. Feito em 30/09. | Dados novos visíveis logo após a importação. |
 
 ## 3. Próximos passos
 
-1. Faça login no Docker Hub: `podman login docker.io -u wellingtonwfsarmento`. Depois, publique com `./publish-docker.sh 1.2.0` em cada projeto, ou peça que eu publique.
-2. No Portainer, atualize a stack com o `docker-compose.stack.yml` do superprojeto. Ele passa ao `dfundce` a mesma `JWT_SECRET` do `tgdmserver`.
-3. Implante `tgdmserver` e `dfundce` juntos. O miniserver 1.2.0 recusa tokens sem `aud`/`iss`, e o dashboard 1.2.0 agrupa o Gini pelo pseudônimo. Uma versão sem a outra quebra os mapas.
-4. Na primeira subida, o miniserver refaz a carga e elimina as duplicatas. Leva alguns minutos, e o healthcheck espera até 15.
-5. Confira as páginas. A contagem do mapa de Assentamentos deve cair para o número real, se havia duplicatas em produção.
-6. Faça a primeira rotação dos segredos (T0.4) e apague as tags antigas.
+1. No Portainer, atualize a stack com o `docker-compose.stack.yml` do superprojeto. Ele passa ao `dfundce` a mesma `JWT_SECRET` do `tgdmserver`.
+2. Implante `tgdmserver` e `dfundce` juntos. O miniserver 1.2.0 recusa tokens sem `aud`/`iss`, e o dashboard 1.2.0 agrupa o Gini pelo pseudônimo. Uma versão sem a outra quebra os mapas.
+3. Na primeira subida, o miniserver refaz a carga e elimina as duplicatas. Leva alguns minutos, e o healthcheck espera até 15.
+4. Confira as páginas. A contagem do mapa de Assentamentos deve cair para o número real, se havia duplicatas em produção.
+5. Faça a primeira rotação dos segredos (T0.4) e apague as tags antigas.
 
 ## 4. Decisões em aberto
 
@@ -374,12 +373,12 @@ Mesmo benchmark (`tests/benchPaginas.py`) e mesmos dados sintéticos antes e dep
 - [x] Dashboard 1.2.0: token com `aud` e `iss`, cache que acompanha a versão dos dados e Gini pelo pseudônimo, com os mesmos resultados.
 - [x] Terra-AI: token com `aud` e `iss`.
 - [x] Integração testada com os dados reais: miniserver e dashboard em container, só com variáveis de ambiente.
+- [x] Imagens 1.2.0 do miniserver e do dashboard publicadas no Docker Hub e conferidas.
 
 ### Falta fazer
 
 **Você**
 
-- [ ] Fazer login no Docker Hub neste computador para publicar as imagens 1.2.0.
 - [ ] TG.8: implantar miniserver e dashboard 1.2.0 juntos, com a stack atualizada.
 - [ ] T0.4: primeira rotação dos segredos e remoção das tags antigas do Docker Hub.
 - [ ] TG.5: acionar o IDACE sobre o 502 da GeoAPI.
