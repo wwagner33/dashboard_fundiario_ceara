@@ -20,12 +20,17 @@ import os
 import streamlit as st
 
 JWT_ALGORITHM = "HS256"
+# Claims exigidos pelo miniserver desde a versão 1.2.0.
+JWT_AUDIENCIA = "terra-geodata-mini-server"
+JWT_EMISSOR = "dashboard_fundiario_ceara"
 DURACAO_TOKEN_MINUTOS = 30
 REQUEST_TIMEOUT = 120  # segundos
 
-# Os dados do miniserver são recarregados uma vez por mês. Um TTL de 24 horas
-# faz a carga nova aparecer no dashboard em no máximo um dia.
+# Os dados do miniserver são recarregados uma vez por mês. O dashboard consulta
+# /versao_dados a cada TTL_VERSAO segundos e descarta o cache quando a versão
+# muda. O TTL de 24 horas fica como segurança para servidores sem esse endpoint.
 TTL_DADOS = 24 * 60 * 60
+TTL_VERSAO = 5 * 60
 
 DATA_SERVICE_URL = os.environ.get("DATA_SERVICE_URL", "http://localhost:8000").rstrip("/")
 

@@ -118,10 +118,58 @@ def test_cacheEvitaRequisicaoRepetida(miniserverSimulado):
     assert len(_chamadas(miniserverSimulado, "regioes")) == 1
 
 
-def test_primeiraCargaCompletaFazUmaRequisicaoPorRegiaoMaisDuas(miniserverSimulado):
+def test_primeiraCargaCompletaFazUmaRequisicaoPorRegiaoMaisTres(miniserverSimulado):
     repositorio.carregarLotesClassificados()
     repositorio.carregarLimitesMunicipaisGdf()
     repositorio.carregarLimitesMunicipais()
     numeroDeRegioes = 1
-    assert miniserverSimulado.call_count == 2 + numeroDeRegioes
+    # versão dos dados, regiões e limites, mais uma requisição por região
+    assert miniserverSimulado.call_count == 3 + numeroDeRegioes
     assert GEOJSON_MUNICIPIOS["features"]
+
+
+# ---------------------------------------------------------------------------
+# Versão dos dados (/versao_dados)
+# ---------------------------------------------------------------------------
+
+def _responderComVersao(versoes):
+    """Responde /versao_dados com a próxima versão da lista e /regioes normalmente."""
+    def responder(request, context):
+        if request.path.rstrip("/") == "/versao_dados":
+            return {"versao": versoes[0]}
+        return {"regioes": ["A"]}
+    return responder
+
+
+@pytest.mark.comVersao
+def test_novaVersaoDescartaOCache(requests_mock):
+    versoes = ["v1"]
+    requests_mock.get(TODAS, json=_responderComVersao(versoes))
+    repositorio.carregarRegioes()
+    repositorio.carregarRegioes()
+    assert len(_chamadas(requests_mock, "regioes")) == 1
+    versoes[0] = "v2"
+    repositorio.carregarVersaoDados.clear()
+    repositorio.carregarRegioes()
+    assert len(_chamadas(requests_mock, "regioes")) == 2
+
+
+@pytest.mark.comVersao
+def test_mesmaVersaoMantemOCache(requests_mock):
+    requests_mock.get(TODAS, json=_responderComVersao(["v1"]))
+    repositorio.carregarRegioes()
+    repositorio.carregarVersaoDados.clear()
+    repositorio.carregarRegioes()
+    assert len(_chamadas(requests_mock, "regioes")) == 1
+
+
+@pytest.mark.comVersao
+def test_miniserverSemEndpointDeVersaoContinuaFuncionando(requests_mock):
+    requests_mock.get(url("versao_dados"), status_code=404)
+    requests_mock.get(url("regioes"), json={"regioes": ["A"]})
+    assert repositorio.carregarVersaoDados() == ""
+    assert repositorio.carregarRegioes() == ["A"]
+
+
+def test_lotesTrazemOPseudonimoDoProprietario(miniserverSimulado):
+    assert repositorio.carregarLotes()["id_proprietario"].notna().all()

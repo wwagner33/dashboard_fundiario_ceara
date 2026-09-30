@@ -135,6 +135,13 @@ individual (ME, MEI, EIRELI) ficam ocultos. A regra está em
 `modules/privacidade.py`, e o mascaramento acontece no servidor, antes de o mapa
 chegar ao navegador.
 
-O miniserver ainda envia os nomes ao dashboard. Retirá-los da API exige uma nova
-versão do miniserver.
+Desde a versão 1.2.0, o miniserver já entrega o nome protegido pela mesma regra
+e um pseudônimo (`id_proprietario`) para o cálculo do Índice de Gini. O dashboard
+mantém o mascaramento como segunda barreira.
+
+## Versão dos dados
+
+O dashboard consulta `/versao_dados` no miniserver a cada 5 minutos. Quando uma
+carga nova termina, o cache é descartado e os dados novos aparecem na interação
+seguinte. O prazo de 24 horas continua valendo como segurança.
 

@@ -19,8 +19,13 @@ def test_enviaTokenBearerAssinadoComOSegredo(requests_mock):
     apiCliente.buscarJson("regioes")
     cabecalho = requests_mock.last_request.headers["Authorization"]
     assert cabecalho.startswith("Bearer ")
-    payload = jwt.decode(cabecalho.split(" ", 1)[1], config.obterSegredoJwt(), algorithms=[config.JWT_ALGORITHM])
+    payload = jwt.decode(
+        cabecalho.split(" ", 1)[1], config.obterSegredoJwt(), algorithms=[config.JWT_ALGORITHM],
+        audience=config.JWT_AUDIENCIA,
+    )
     assert payload["sub"] == "streamlit_app"
+    assert payload["iss"] == "dashboard_fundiario_ceara"
+    assert payload["aud"] == "terra-geodata-mini-server"
 
 
 def test_reaproveitaOTokenEntreChamadas(requests_mock):

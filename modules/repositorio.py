@@ -10,10 +10,14 @@ Regras de cache:
   milhares de linhas a cada interação. **Trate-os como somente leitura** e faça
   ``.copy()`` antes de qualquer alteração.
 
-Todas expiram em ``config.TTL_DADOS``. As funções derivadas de outras recebem a
-versão dos dados (``versaoDados``) como chave, para nunca misturar cargas.
+Todas expiram em ``config.TTL_DADOS``. Antes de cada consulta, o repositório
+confere a versão dos dados no miniserver (``/versao_dados``, cacheada por
+``config.TTL_VERSAO``). Se ela mudou, os caches daqui são descartados e a carga
+nova aparece na interação seguinte. As funções derivadas recebem a versão dos
+dados (``versaoDados``) como chave, para nunca misturar cargas.
 """
 
+import functools
 import logging
 import time
 
@@ -31,9 +35,50 @@ COLUNAS_LOTES = [
     "imovel", "data_criacao_lote", "numero_incra", "numero_lote", "numero_titulo",
     "area", "modulo_fiscal", "situacao_juridica", "categoria", "regiao_administrativa",
     "nome_municipio", "nome_municipio_original", "nome_distrito", "nome_proprietario",
+    "id_proprietario",
 ]
 
 GEOJSON_VAZIO = {"type": "FeatureCollection", "features": []}
+
+
+_CACHES_DE_DADOS: list = []
+_versaoConhecida: str | None = None
+
+
+@st.cache_data(ttl=config.TTL_VERSAO, show_spinner=False)
+def carregarVersaoDados() -> str:
+    """Versão da carga mais recente no miniserver, ou "" se ele não informar."""
+    try:
+        dados = apiCliente.buscarJson("versao_dados", permitir404=True)
+    except apiCliente.ErroApi:
+        return ""
+    return str((dados or {}).get("versao") or "")
+
+
+def sincronizarVersaoDados() -> None:
+    """Descarta os caches de dados quando o miniserver passa a ter uma carga nova."""
+    global _versaoConhecida
+    versao = carregarVersaoDados()
+    if not versao:
+        return
+    if _versaoConhecida and versao != _versaoConhecida:
+        logger.info("Nova carga de dados no miniserver (%s); descartando o cache.", versao)
+        for funcao in _CACHES_DE_DADOS:
+            funcao.clear()
+    _versaoConhecida = versao
+
+
+def _conferindoVersao(funcao):
+    """Confere a versão dos dados antes de usar o cache da função."""
+    _CACHES_DE_DADOS.append(funcao)
+
+    @functools.wraps(funcao)
+    def envoltorio(*args, **kwargs):
+        sincronizarVersaoDados()
+        return funcao(*args, **kwargs)
+
+    envoltorio.clear = funcao.clear
+    return envoltorio
 
 
 def versaoDados(df: pd.DataFrame) -> float:
@@ -41,23 +86,27 @@ def versaoDados(df: pd.DataFrame) -> float:
     return df.attrs.get("versao", 0.0)
 
 
+@_conferindoVersao
 @st.cache_data(ttl=config.TTL_DADOS, show_spinner=False)
 def carregarRegioes() -> list[str]:
     return apiCliente.buscarJson("regioes").get("regioes", [])
 
 
+@_conferindoVersao
 @st.cache_data(ttl=config.TTL_DADOS, show_spinner=False)
 def carregarMunicipiosDaRegiao(regiao: str) -> list[str]:
     dados = apiCliente.buscarJson("municipios", {"regiao": regiao}, permitir404=True)
     return (dados or {}).get("municipios", [])
 
 
+@_conferindoVersao
 @st.cache_data(ttl=config.TTL_DADOS, show_spinner="Carregando limites municipais...")
 def carregarLimitesMunicipais() -> dict:
     """GeoJSON com o limite de todos os municípios, numa única requisição."""
     return apiCliente.buscarJson("geojson_muni", {"municipio": "todos"})
 
 
+@_conferindoVersao
 @st.cache_resource(ttl=config.TTL_DADOS, show_spinner=False)
 def carregarLimitesMunicipaisGdf() -> gpd.GeoDataFrame:
     """Limites municipais como GeoDataFrame. Compartilhado: somente leitura."""
@@ -76,6 +125,7 @@ def filtrarLimites(limites: dict, municipios) -> dict:
     }
 
 
+@_conferindoVersao
 @st.cache_resource(ttl=config.TTL_DADOS, show_spinner="Carregando dados fundiários...")
 def carregarLotes() -> pd.DataFrame:
     """Todos os imóveis do estado, uma requisição por região. Compartilhado: somente leitura."""
@@ -109,12 +159,16 @@ def _classificarLotes(versao: float, _lotes: pd.DataFrame) -> pd.DataFrame:
     return dfClassificado
 
 
+_CACHES_DE_DADOS.append(_classificarLotes)
+
+
 def carregarLotesClassificados() -> pd.DataFrame:
     """Imóveis com área e módulo fiscal válidos e a coluna ``categoria``. Somente leitura."""
     lotes = carregarLotes()
     return _classificarLotes(versaoDados(lotes), lotes)
 
 
+@_conferindoVersao
 @st.cache_data(ttl=config.TTL_DADOS, show_spinner="Carregando imóveis...")
 def carregarGeojsonLotes(regiao: str | None = None, municipio: str | None = None) -> dict:
     """Polígonos dos imóveis de uma região ou de um município, simplificados no servidor."""
@@ -122,6 +176,7 @@ def carregarGeojsonLotes(regiao: str | None = None, municipio: str | None = None
     return apiCliente.buscarJson("geojson", parametros, permitir404=True) or GEOJSON_VAZIO
 
 
+@_conferindoVersao
 @st.cache_data(ttl=config.TTL_DADOS, show_spinner="Carregando assentamentos...")
 def carregarAssentamentos(municipio: str = "todos", tolerancia: float | None = None) -> dict:
     parametros = {"municipio": municipio}
@@ -130,16 +185,19 @@ def carregarAssentamentos(municipio: str = "todos", tolerancia: float | None = N
     return apiCliente.buscarJson("geojson_assentamentos", parametros, permitir404=True) or GEOJSON_VAZIO
 
 
+@_conferindoVersao
 @st.cache_data(ttl=config.TTL_DADOS, show_spinner=False)
 def carregarMunicipiosComAssentamento() -> list[str]:
     return apiCliente.buscarJson("assentamentos_municipios").get("municipios", [])
 
 
+@_conferindoVersao
 @st.cache_data(ttl=config.TTL_DADOS, show_spinner="Carregando reservatórios...")
 def carregarReservatorios(municipio: str = "todos") -> dict:
     return apiCliente.buscarJson("geojson_reservatorios", {"municipio": municipio}, permitir404=True) or GEOJSON_VAZIO
 
 
+@_conferindoVersao
 @st.cache_data(ttl=config.TTL_DADOS, show_spinner=False)
 def carregarMunicipiosComReservatorio() -> list[str]:
     return apiCliente.buscarJson("reservatorios_municipios").get("municipios", [])

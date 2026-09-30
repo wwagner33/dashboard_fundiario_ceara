@@ -1,7 +1,8 @@
 # Plano de melhoria do código do dashboard_fundiario_ceara
 
 - **Data da análise:** 29/09/2026. Decisões do usuário registradas na mesma data.
-- **Testes:** 143 passed, 1 xfailed
+- **Testes antes:** 143 passed, 1 xfailed, 220 avisos
+- **Testes na 1.2.0:** dashboard 291 e miniserver 112, sem avisos
 - **pyflakes:** 18 avisos
 - **app.py:** 1422 linhas, 713 comentadas
 - **Ambiente:** Python 3.13.11, Streamlit 1.59.2, folium 0.20.0, pandas 3.0.3, geopandas 1.1.4
@@ -10,7 +11,7 @@ Cada achado tem `arquivo:linha` conferido no código. **[reproduzido]** indica q
 
 ## Ação urgente
 
-As imagens publicadas no Docker Hub contêm o `JWT_SECRET` real, e a tag `1.1.0` também leva a senha do Postgres. O código já está pronto: o segredo vem do ambiente e a próxima imagem sai sem o `secrets.toml`. Antes de publicá-la, reimplante a stack com o `docker-compose.stack.yml` atualizado (T0.3). Depois, faça a primeira rotação dos segredos e apague as tags antigas (T0.4).
+A versão 1.2.0 do miniserver e do dashboard está pronta e testada com os dados reais. Ela corrige a duplicação de assentamentos, reservatórios e regiões a cada reinício do miniserver (B10). Falta publicar as imagens, o que exige login no Docker Hub, e implantar as duas juntas pela stack atualizada. As tags antigas ainda contêm o `JWT_SECRET` e a senha do Postgres: a rotação (T0.4) continua pendente.
 
 ## Decisões registradas
 
@@ -21,7 +22,8 @@ As imagens publicadas no Docker Hub contêm o `JWT_SECRET` real, e a tag `1.1.0`
 | D-4 | Convenção de nomes camelCase, com identificadores em português e sem acentos. Detalhes abaixo. Já registrada nas definições dos agentes do dashboard. |
 | D-5 | O nome do proprietário só aparece quando a LGPD permite. Pessoa física fica oculta como "Pessoa física (protegido pela LGPD)". Aparece só o nome que identifica com segurança pessoa jurídica ou ente público: termina em LTDA ou S/A, ou traz termo institucional como associação, cooperativa ou prefeitura. Espólio e empresário individual (ME, MEI, EIRELI) ficam ocultos. A regra é conservadora e merece revisão jurídica do IDACE. |
 | D-6 | Os dados são atualizados uma vez por mês. O cache do dashboard passa a ter TTL de 24 horas, para que a carga mensal apareça no máximo um dia depois. A atualização depende de resolver a comunicação com a GeoAPI do IDACE (Trilha G). |
-| D-8 | Ficam para depois as tarefas que exigem gerar um novo container do MiniServer: rotação de segredos, correção do importador da GeoAPI, endpoint de versão e retirada dos nomes do payload. As tags do Docker Hub seguem privadas por enquanto. |
+| D-8 | Em 29/09, as tarefas que exigiam container novo do MiniServer ficaram para depois. Em 30/09 foram feitas na versão 1.2.0 do miniserver e do dashboard: importador da GeoAPI, versão dos dados, nomes fora da API e validação de `aud` e `iss` no JWT. |
+| D-9 | A convenção camelCase vale para o dashboard. O miniserver mantém o snake_case que já usa, até decisão sua. |
 
 ### Convenção de nomes (D-4)
 
@@ -44,13 +46,13 @@ As imagens publicadas no Docker Hub contêm o `JWT_SECRET` real, e a tag `1.1.0`
 | S1 | Crítico | A imagem publicada contém `.streamlit/secrets.toml` com o `JWT_SECRET` real, idêntico ao arquivo local. A tag `1.1.0` também contém o `.env` com `POSTGRES_USER` e `POSTGRES_PASSWORD`. O `.dockerignore` não exclui `secrets.toml`, e o `COPY . .` leva o arquivo para a imagem. O repositório no Docker Hub responde 404 para acesso anônimo e parece privado, mas qualquer conta ou máquina com permissão de pull obtém o segredo. | `.dockerignore`, `Dockerfile.dfundce:36`, tags `1.1.0` e `1.1.1` | parcial: O código já deixa o secrets.toml fora da próxima imagem. Faltam T0.3 e T0.4. |
 | S1a | Crítico | A produção depende desse arquivo embutido. O serviço `dfundce` em `docker-compose.stack.yml` não define `JWT_SECRET` nem monta `secrets.toml`, e o código só lê `st.secrets`. Corrigir apenas o `.dockerignore` derruba a autenticação com o miniserver. A Fase 0 define a ordem segura. | `data_loader.py:16`, `mapa_assentamento.py:17`, `mapa_escolas.py:75`, `mapa_reservatorios.py:39` | corrigido: O segredo vem do ambiente e a stack já passa JWT_SECRET ao dfundce. |
 | S2 | Alto | Injeção de HTML: valores vindos da API entram em HTML sem escape. Um nome de assentamento, reservatório ou município malformado executa JavaScript no iframe do mapa. | `mapa_assentamento.py:178-187`, `mapa_reservatorios.py:261-271`, `mapa_gini.py:179`, `mapa_gini.py:263` | corrigido |
-| S3 | Médio | Dados pessoais e LGPD: `nome_proprietario` aparece no tooltip da Malha Fundiária e vai embutido no HTML do mapa. Todos os nomes de proprietários de uma região chegam ao navegador. A decisão é do IDACE. | `mapa_interativo.py:312`, `data_loader.py:110` | parcial: O dashboard mascara; o miniserver ainda envia os nomes. |
+| S3 | Médio | Dados pessoais e LGPD: `nome_proprietario` aparece no tooltip da Malha Fundiária e vai embutido no HTML do mapa. Todos os nomes de proprietários de uma região chegam ao navegador. A decisão é do IDACE. | `mapa_interativo.py:312`, `data_loader.py:110` | corrigido: Desde a 1.2.0 a API também entrega o nome protegido e um pseudônimo. |
 | S4 | Médio | JavaScript injetado no documento pai via `components.html` para colorir os botões do menu. Depende de iframe same-origin e cria 9 iframes a cada interação. | `app.py:595-614` | corrigido |
 | S5 | Médio | O `config.toml` de produção tem `enableXsrfProtection = false`, `enableCORS = false`, `runOnSave = true` e `fileWatcherType = "auto"`. A opção `server.maxCacheSize` não existe e gera aviso na inicialização. | `.streamlit/config.toml` | parcial: Falta testar XSRF atrás do proxy. |
 | S6 | Baixo | Mensagens de erro exibem a URL interna do miniserver e a exceção crua ao usuário final. | `data_loader.py:68,121,154,197`, `mapa_assentamento.py:78`, `mapa_interativo.py:263` | corrigido |
 | S7 | Baixo | O container roda como `root` e não tem `HEALTHCHECK`. A base `python:3.13-slim-bullseye` usa Debian 11, cujo LTS terminou em agosto de 2026. Nenhuma dependência tem versão fixada. | `Dockerfile.dfundce`, `requirements.txt` | corrigido |
 | S8 | Baixo | Imagens carregadas de `i.imgur.com` e `idace.ce.gov.br`: o terceiro recebe o IP de cada visitante e a página quebra se o link sair do ar. | `app.py:135,256,259,304`, `style.css:690-750,1135-1141` | pendente: Aguarda T7.7. |
-| S9 | Baixo | O JWT usa `datetime.utcnow()`, que está depreciado, é assinado a cada requisição e não tem `aud` nem `iss`. O segredo é lido na importação; sem ele, o app quebra com um `KeyError` pouco claro. | os quatro módulos de S1a | parcial: aud e iss exigem mudança no miniserver. |
+| S9 | Baixo | O JWT usa `datetime.utcnow()`, que está depreciado, é assinado a cada requisição e não tem `aud` nem `iss`. O segredo é lido na importação; sem ele, o app quebra com um `KeyError` pouco claro. | os quatro módulos de S1a | corrigido: O miniserver 1.2.0 exige aud e iss; dashboard e Terra-AI enviam. |
 
 Fora do escopo do dashboard, para o integration-tester e o miniserver-code-analyst: o miniserver publica a porta 8000 no host e usa `allow_origins=["*"]` (`terraGeoDataMiniServer/data_service/main.py:75`). O `docker-compose.yml` do dashboard publica o Postgres na porta 5432 e usa `postgis:latest`.
 
@@ -65,6 +67,7 @@ Fora do escopo do dashboard, para o integration-tester e o miniserver-code-analy
 | B6 | Médio | **[provável]** Mapa de Gini: o clique lê o texto do tooltip, pega o nome original do município e compara com o nome normalizado. Os formatos diferem, então o Gini do município clicado provavelmente nunca aparece. | `mapa_gini.py:166,255-262` | corrigido |
 | B8 | Médio | `cache_resource` devolve o mesmo DataFrame para todas as sessões, e uma mutação numa sessão vaza para as outras. Funções já decoradas em `data_loader` são decoradas de novo no `app.py`. | `app.py:55-61`, `data_loader.py:135,157`, `mapa_predominancia.py:85` | corrigido |
 | B9 | Médio | Defaults de URL divergentes: `data_loader` usa `http://localhost:8000` e os outros três módulos terminam em `/api`, prefixo que o miniserver não tem. Sem `DATA_SERVICE_URL` no ambiente, três páginas recebem 404. O `conftest.py` remove o `/api` e esconde o problema. | `data_loader.py:30`, `mapa_assentamento.py:30`, `mapa_escolas.py:87`, `mapa_reservatorios.py:51`, `tests/conftest.py:141-143` | corrigido |
+| B10 | Crítico | **[reproduzido]** A cada reinício do container do miniserver, a carga dos CSVs inseria de novo assentamentos, reservatórios e regiões sem apagar a carga anterior. Duas cargas seguidas levaram assentamentos de 454 para 908, reservatórios de 157 para 314 e regiões de 184 para 368. Em produção, os mapas podem estar mostrando cada item repetido. A malha fundiária mantinha para sempre imóveis que saíram da fonte. | `terraGeoDataMiniServer/importer_all.py` | corrigido |
 | B3 | Baixo | Valor padrão `modo_mapa="_categorias Dominantes"`, resto de um localizar e substituir. Não se manifesta hoje porque o chamador sempre passa o valor. | `mapa_predominancia.py:90` | corrigido |
 | B4 | Baixo | **[reproduzido]** `adicionar_camada_assentamentos` usa `COR_ASSENTAMENTO`, que não existe, e lança `NameError`. A função só é chamada em comentário. | `mapa_reservatorios.py:281-308` | corrigido |
 
@@ -233,7 +236,7 @@ Meta: a primeira carga cai de cerca de 187 requisições, mais uma por região, 
 | T3.2 | dashboard-implementer | feita | Criar `modules/repositorio.py` com uma função cacheada por endpoint: `carregarRegioes`, `carregarMunicipiosDaRegiao`, `carregarLimitesMunicipais` com uma única chamada `municipio=todos`, `carregarLotesDaRegiao`, `carregarGeojsonLotes` com tolerância, `carregarAssentamentos`, `carregarMunicipiosComAssentamento`, `carregarReservatorios` e `carregarMunicipiosComReservatorio`. | Cada endpoint aparece em uma única função. |
 | T3.3 | dashboard-implementer | feita | Migrar todas as páginas para o repositório. Tirar `geo_muni` e `geo_assent` do `session_state`. Na Malha Fundiária, filtrar os limites da região a partir do GeoJSON de todos os municípios. Apagar as cópias de `_fetch_from_api` e `create_jwt_token`. | Nenhuma duplicata por grep e pytest verde. |
 | T3.4 | dashboard-tester | feita | Testes de contagem de requisições: limites municipais em uma chamada, primeira carga com no máximo 3 mais uma por região, nenhum endpoint repetido dentro do TTL. Tirar do `conftest.py` o tratamento de `/api`. | Testes novos verdes. |
-| T3.5 | integration-tester | parcial | Contrato conferido na leitura de `data_service/main.py`: endpoints, parâmetros e geometria em GeoJSON, o que dispensou `convert_hex_to_geojson`. Falta validar contra o miniserver rodando com dados reais, que não existe nesta máquina. | Relatório de contrato. |
+| T3.5 | integration-tester | feita | Contrato validado contra o miniserver rodando localmente com os dados reais (233.366 imóveis). A geometria já vem em GeoJSON, o que dispensou `convert_hex_to_geojson`. Feito em 30/09. | Relatório de contrato. |
 
 ### Fase 4: Componentes compartilhados de mapa e interface
 
@@ -283,7 +286,7 @@ Mexe em arquivos de infraestrutura e pode rodar em paralelo à Fase 2.
 | T7.5 | dashboard-implementer | feita | Alinhar `.python-version`, `.tool-versions` e Dockerfile na mesma versão de Python. | Os três arquivos iguais. |
 | T7.6 | integration-tester | parcial | Workflow `.github/workflows/testes.yml` no próprio repositório do dashboard, que é onde os PRs acontecem, rodando `ruff` e `pytest`. Falta ver o primeiro run verde depois do push. | Workflow verde num PR de teste. |
 | T7.7 | Humano + dashboard-implementer | pendente | S8: você confirma os direitos de uso, e as imagens externas passam para `assets/`, servidas localmente. | Nenhum `img` ou `url()` apontando para imgur ou idace. |
-| T7.8 | dashboard-implementer | parcial | S3, decisão D-5: no dashboard, o nome de pessoa física não chega mais ao navegador. Falta retirar os nomes do payload do miniserver, o que exige container novo. | Decisão registrada. |
+| T7.8 | dashboard-implementer | feita | S3, decisão D-5: o miniserver 1.2.0 entrega o nome protegido em `/dados_fundiarios` e `/geojson`, e o pseudônimo `id_proprietario`, um HMAC do nome normalizado. O Gini do dashboard agrupa pelo pseudônimo e dá os mesmos resultados: 134.315 proprietários nos dois modos. Feito em 30/09. | Decisão registrada. |
 
 ### Trilha G: GeoAPI do IDACE e atualização mensal
 
@@ -293,17 +296,21 @@ Trilha paralela no miniserver. A atualização mensal depende da importação da
 |---|---|---|---|---|
 | TG.1 | Claude | feita | Diagnóstico da comunicação com a GeoAPI do IDACE, sem editar nada. Resultado na seção Diagnóstico da GeoAPI. Feito em 29/09. | Relatório com a causa provável e um passo a passo para reproduzir. |
 | TG.5 | Humano | pendente | Acionar o IDACE: o proxy da GeoAPI responde 502 Bad Gateway, então o serviço por trás dele está fora do ar. | GeoAPI responde 401 sem token e 200 com token. |
-| TG.2 | miniserver-implementer | pendente | Corrigir o importador: nomes errados de Granjeiro e Limoeiro do Norte, URL em HTTPS, paginação além de 10.000 registros, erro claro sem `TOKEN_GEOAPI` e sem repetir tentativas em erro 4xx. Exige container novo do miniserver. | Importação completa sem erro e sem duplicar registros. |
-| TG.3 | integration-tester | pendente | Validar que, depois de uma importação, o dashboard mostra os dados novos em até 24 horas. | Teste ponta a ponta. |
-| TG.4 | miniserver-implementer + dashboard-implementer | pendente | Endpoint com a versão dos dados, isto é, a data da última importação. O dashboard usa essa versão na chave do cache, e os dados novos aparecem na primeira visita após a importação. Substitui a chamada a `/version`, que não existe. | Dados novos visíveis logo após a importação. |
+| TG.2 | miniserver-implementer | feita | Importador da GeoAPI corrigido: quatro nomes de município errados (Granjeiro, Limoeiro do Norte, Tabuleiro do Norte e Piquet Carneiro), HTTPS, paginação, erro claro sem `TOKEN_GEOAPI`, nova tentativa só em falha de rede ou 5xx, e execução sem terminal. A cópia comentada de 464 linhas foi removida. Feito em 30/09. | Importação completa sem erro e sem duplicar registros. |
+| TG.3 | integration-tester | parcial | Mecanismo testado localmente: uma carga nova muda a versão e o dashboard recarrega. Falta observar a primeira carga mensal em produção. | Teste ponta a ponta. |
+| TG.6 | Claude | feita | Duplicação B10: cada tabela é trocada inteira numa única transação, e o registro de cargas guarda a data de cada uma. Validado no banco local: um banco já duplicado voltou às contagens corretas. Feito em 30/09. | Reiniciar o container não altera as contagens. |
+| TG.7 | Claude | feita | Terra-AI: o token passou a enviar `aud` e `iss`, validado contra o miniserver novo. Feito em 30/09. | Terra-AI autentica no miniserver 1.2.0. |
+| TG.8 | Humano | pendente | Publicar as imagens 1.2.0 (exige `podman login docker.io`) e implantar miniserver e dashboard juntos, com a stack atualizada. Passos em Próximos passos. | As duas versões no ar e as páginas com dados. |
+| TG.4 | miniserver-implementer + dashboard-implementer | feita | Endpoint `/versao_dados`, alimentado pelo registro de cargas do importador. O dashboard confere a versão a cada 5 minutos e descarta o cache quando ela muda. Feito em 30/09. | Dados novos visíveis logo após a importação. |
 
 ## 3. Próximos passos
 
-1. T0.3, com você: reimplantar a stack e só então publicar a imagem nova do dashboard.
-2. T0.4, com você: primeira rotação dos segredos e remoção das tags antigas.
-3. TG.5, com você: acionar o IDACE sobre o 502 da GeoAPI. A TG.2 entra quando for liberado gerar container novo do MiniServer.
-4. T1.4 e commit: revisar os arquivos sem uso e registrar as mudanças no git.
-5. Validação com o ambiente real: T3.5, T0.5, T7.6 e T7.3.
+1. Faça login no Docker Hub: `podman login docker.io -u wellingtonwfsarmento`. Depois, publique com `./publish-docker.sh 1.2.0` em cada projeto, ou peça que eu publique.
+2. No Portainer, atualize a stack com o `docker-compose.stack.yml` do superprojeto. Ele passa ao `dfundce` a mesma `JWT_SECRET` do `tgdmserver`.
+3. Implante `tgdmserver` e `dfundce` juntos. O miniserver 1.2.0 recusa tokens sem `aud`/`iss`, e o dashboard 1.2.0 agrupa o Gini pelo pseudônimo. Uma versão sem a outra quebra os mapas.
+4. Na primeira subida, o miniserver refaz a carga e elimina as duplicatas. Leva alguns minutos, e o healthcheck espera até 15.
+5. Confira as páginas. A contagem do mapa de Assentamentos deve cair para o número real, se havia duplicatas em produção.
+6. Faça a primeira rotação dos segredos (T0.4) e apague as tags antigas.
 
 ## 4. Decisões em aberto
 
@@ -331,12 +338,12 @@ Mesmo benchmark (`tests/benchPaginas.py`) e mesmos dados sintéticos antes e dep
 ## 6. Diagnóstico da GeoAPI (TG.1)
 
 - Em 29/09/2026 às 17h27, o endpoint usado pelo importador respondeu **502 Bad Gateway** pelo proxy `openresty` do IDACE, com e sem token. O endereço em HTTP redireciona para HTTPS, e o HTTPS responde 502. O serviço por trás do proxy está fora do ar ou inacessível. Só o IDACE resolve isso (TG.5).
-- A lista fixa de municípios do importador tem dois nomes errados: "GRANJEIRAS" em vez de Granjeiro e "LIMOEIRAS DO NORTE" em vez de Limoeiro do Norte. Esses dois municípios nunca são importados, e as falhas contam como erro de comunicação.
-- O importador pede uma única página de até 10.000 registros por município (`pagina=0&tamanho=10000`). Um município com mais registros é cortado sem aviso.
-- A URL base usa HTTP e envia o token Bearer antes do redirecionamento para HTTPS.
-- Sem `TOKEN_GEOAPI` definido, o importador usa um token vazio em vez de parar com erro, porque o valor padrão em `config.py` é uma string vazia.
-- Erros 4xx também disparam cinco novas tentativas com espera exponencial, o que atrasa a importação sem chance de sucesso.
-- O importador usa `curses` para a barra de progresso e não roda sem terminal. Ele não é chamado pelo `entrypoint.sh`, que só executa o `importer_all.py`.
+- A lista fixa de municípios do importador tinha quatro nomes errados: Granjeiro, Limoeiro do Norte, Tabuleiro do Norte e Piquet Carneiro. Esses municípios nunca eram importados. O relatório anterior citava só dois, porque a conferência leu por engano uma cópia comentada da lista. Corrigido na 1.2.0.
+- O importador pedia uma única página de até 10.000 registros por município, e um município maior era cortado sem aviso. Na 1.2.0 ele pagina até a última página.
+- A URL base usava HTTP e enviava o token antes do redirecionamento para HTTPS. Corrigido na 1.2.0.
+- Sem `TOKEN_GEOAPI`, o importador usava um token vazio. Na 1.2.0 ele para com uma mensagem clara.
+- Erros 4xx disparavam cinco novas tentativas inúteis. Na 1.2.0 só falhas de rede e erros 5xx são repetidos.
+- O importador dependia de terminal por causa da barra de progresso em `curses`. Na 1.2.0 ele registra o progresso em log quando não há terminal.
 
 ## 7. Checklist
 
@@ -361,37 +368,39 @@ Mesmo benchmark (`tests/benchPaginas.py`) e mesmos dados sintéticos antes e dep
 - [x] Workflow de CI no repositório do dashboard.
 - [x] README atualizado e definições dos agentes alinhadas à estrutura nova.
 - [x] Diagnóstico da GeoAPI do IDACE (TG.1).
+- [x] Versão 1.2.0 do miniserver: carga sem duplicação (B10), registro de cargas e `/versao_dados`, nomes protegidos e pseudônimo na API, JWT com `aud` e `iss`, CORS configurável, cache das listas com prazo e configuração de listas por variável de ambiente corrigida.
+- [x] Importador da GeoAPI corrigido: quatro municípios, HTTPS, paginação, token, novas tentativas e execução sem terminal.
+- [x] Imagem do miniserver sem root, com healthcheck, base Debian 13, dependências fixadas e sem ferramentas de compilação.
+- [x] Dashboard 1.2.0: token com `aud` e `iss`, cache que acompanha a versão dos dados e Gini pelo pseudônimo, com os mesmos resultados.
+- [x] Terra-AI: token com `aud` e `iss`.
+- [x] Integração testada com os dados reais: miniserver e dashboard em container, só com variáveis de ambiente.
 
 ### Falta fazer
 
 **Você**
 
-- [ ] T0.3: reimplantar a stack com o `docker-compose.stack.yml` atualizado e depois publicar a imagem nova.
+- [ ] Fazer login no Docker Hub neste computador para publicar as imagens 1.2.0.
+- [ ] TG.8: implantar miniserver e dashboard 1.2.0 juntos, com a stack atualizada.
 - [ ] T0.4: primeira rotação dos segredos e remoção das tags antigas do Docker Hub.
-- [ ] T1.4: revisar a pasta `arquivos-sem-uso/`.
 - [ ] TG.5: acionar o IDACE sobre o 502 da GeoAPI.
+- [ ] T1.4: revisar a pasta `arquivos-sem-uso/`.
 - [ ] T7.7: confirmar os direitos de uso das imagens hoje carregadas do imgur e do site do IDACE.
 - [ ] Decidir D-2 (gráfico de Geocadastro) e D-7 (gráficos nativos).
-- [ ] Revisar e fazer o commit das mudanças. Nada foi commitado.
+- [ ] Enviar os commits ao GitHub. Nada foi enviado.
 
-**Exigem container novo do MiniServer**
+**Validação em produção**
 
-- [ ] TG.2: corrigir o importador da GeoAPI.
-- [ ] TG.4: endpoint com a versão dos dados.
-- [ ] T7.8: retirar os nomes de proprietários do payload da API.
-- [ ] S9: incluir `aud` e `iss` nos tokens, validados pelo miniserver.
-
-**Validação com o ambiente real**
-
-- [ ] T3.5 e T0.5: conferir o contrato e o JWT com o miniserver rodando com dados reais.
-- [ ] TG.3: confirmar que a carga mensal aparece no dashboard em até 24 horas.
+- [ ] T0.5: conferir o JWT depois da rotação.
+- [ ] TG.3: acompanhar a primeira carga mensal com o endpoint de versão.
 - [ ] T7.6: ver o primeiro run verde do CI depois do push.
-- [ ] T7.3: testar a proteção XSRF atrás do proxy de produção.
+- [ ] T7.3: testar a proteção XSRF atrás do proxy.
 
-**Fora do escopo do dashboard**
+**Fora do escopo desta rodada**
 
-- [ ] Fixar a versão do `postgis` e revisar as portas publicadas nos arquivos de compose.
-- [ ] Atualizar os diagramas em `doc/*.puml`, que ainda mostram a estrutura antiga.
+- [ ] Fixar a versão do `postgis` na stack. Antes, confira a versão em uso em produção com `SELECT version()`, porque trocar de versão principal exige migrar o volume de dados.
+- [ ] Avaliar se a porta 8000 do miniserver precisa continuar publicada no host.
+- [ ] A imagem do miniserver leva os CSVs com nomes de proprietários, porque a carga roda na inicialização. Mantenha o repositório privado até a separação do Carregador de Dados.
+- [ ] Atualizar os diagramas em `doc/*.puml`.
 
 
 ## 8. Como acionar

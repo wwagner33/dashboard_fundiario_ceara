@@ -8,4 +8,4 @@ ambiente (``CARTO_API_KEY`` e ``JWT_SECRET``) antes que qualquer leitura de
 
 from . import basemap, config  # noqa: F401
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"

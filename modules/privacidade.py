@@ -13,9 +13,9 @@ termo institucional inequívoco (``ASSOCIAÇÃO``, ``PREFEITURA``, ``ESTADO DO
 CEARÁ``...). Na dúvida, o nome fica oculto. Espólio e empresário individual
 (ME, MEI, EIRELI), que costumam carregar o nome da pessoa, ficam ocultos.
 
-O mascaramento acontece no servidor do Streamlit, antes de montar o mapa, então
-o nome da pessoa física nunca chega ao navegador. O miniserver ainda envia os
-nomes ao dashboard; tirá-los da API exige uma nova versão do miniserver.
+Desde a versão 1.2.0 o miniserver já entrega o nome protegido pela mesma regra,
+e o pseudônimo ``id_proprietario`` para o cálculo do Gini. O mascaramento aqui
+continua como segunda barreira, antes de montar o mapa.
 
 HTML
 ----

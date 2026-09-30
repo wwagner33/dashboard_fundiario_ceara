@@ -42,7 +42,10 @@ def gerarToken() -> str:
         if _tokenAtual and _tokenExpiraEm and agora < _tokenExpiraEm - _MARGEM_RENOVACAO:
             return _tokenAtual
         expiraEm = agora + timedelta(minutes=config.DURACAO_TOKEN_MINUTOS)
-        payload = {"exp": expiraEm, "iat": agora, "sub": "streamlit_app"}
+        payload = {
+            "exp": expiraEm, "iat": agora, "sub": "streamlit_app",
+            "aud": config.JWT_AUDIENCIA, "iss": config.JWT_EMISSOR,
+        }
         _tokenAtual = jwt.encode(payload, config.obterSegredoJwt(), algorithm=config.JWT_ALGORITHM)
         _tokenExpiraEm = expiraEm
         return _tokenAtual

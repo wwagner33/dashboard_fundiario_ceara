@@ -3,7 +3,7 @@
 
 O Gini de cada município considera a soma das áreas de cada proprietário no
 município. O Gini estadual soma as áreas de cada proprietário no estado todo.
-Os nomes dos proprietários só são usados para agrupar; nunca são exibidos.
+O agrupamento usa o pseudônimo ``id_proprietario`` do miniserver; nenhum nome é exibido.
 """
 
 import html
@@ -53,13 +53,25 @@ def normalizarNomes(serie: pd.Series) -> pd.Series:
     )
 
 
+def chaveDoProprietario(dfLotes: pd.DataFrame) -> pd.Series:
+    """Identifica o proprietário para o agrupamento.
+
+    Usa o pseudônimo ``id_proprietario`` enviado pelo miniserver desde a versão
+    1.2.0, que não revela o nome. Com um miniserver antigo, sem esse campo,
+    usa o nome normalizado.
+    """
+    if "id_proprietario" in dfLotes.columns and dfLotes["id_proprietario"].notna().any():
+        return dfLotes["id_proprietario"]
+    return normalizarNomes(dfLotes["nome_proprietario"])
+
+
 def prepararBaseGini(dfLotes: pd.DataFrame) -> pd.DataFrame:
     """Soma a área de cada proprietário por município e anexa o total de imóveis do município."""
-    df = dfLotes[["nome_municipio", "nome_municipio_original", "regiao_administrativa", "nome_proprietario", "area"]].copy()
-    df["nome_proprietario_normalizado"] = normalizarNomes(df["nome_proprietario"])
+    df = dfLotes[["nome_municipio", "nome_municipio_original", "regiao_administrativa", "area"]].copy()
+    df["chave_proprietario"] = chaveDoProprietario(dfLotes)
     contagem = df.groupby("nome_municipio").size().rename("cnt_imoveis").reset_index()
     agrupado = (
-        df.groupby(["nome_municipio", "nome_proprietario_normalizado"])
+        df.groupby(["nome_municipio", "chave_proprietario"])
         .agg(
             area=("area", "sum"),
             nome_municipio_original=("nome_municipio_original", "first"),
@@ -77,7 +89,7 @@ def calcularGiniPorMunicipio(dfAgrupado: pd.DataFrame) -> pd.DataFrame:
             nome_municipio_original=("nome_municipio_original", "first"),
             regiao_administrativa=("regiao_administrativa", "first"),
             cnt_imoveis=("cnt_imoveis", "first"),
-            cnt_proprietarios=("nome_proprietario_normalizado", "nunique"),
+            cnt_proprietarios=("chave_proprietario", "nunique"),
             gini_area=("area", calcularGini),
         )
         .reset_index()
@@ -85,7 +97,7 @@ def calcularGiniPorMunicipio(dfAgrupado: pd.DataFrame) -> pd.DataFrame:
 
 
 def calcularGiniEstadual(dfAgrupado: pd.DataFrame) -> float:
-    return calcularGini(dfAgrupado.groupby("nome_proprietario_normalizado")["area"].sum().values)
+    return calcularGini(dfAgrupado.groupby("chave_proprietario")["area"].sum().values)
 
 
 def municipiosComPoucosImoveis(giniPorMunicipio: pd.DataFrame) -> list[str]:

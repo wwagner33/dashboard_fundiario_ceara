@@ -32,9 +32,10 @@ def _fechamento(raizes: list[str]) -> dict[str, str]:
             continue
         distribuicao = metadata.distribution(nome)
         versoes[nome] = distribuicao.version
+        extras = {""} | set(requisito.extras)
         for texto in distribuicao.requires or []:
             dependencia = Requirement(texto)
-            if dependencia.marker is None or dependencia.marker.evaluate({"extra": ""}):
+            if dependencia.marker is None or any(dependencia.marker.evaluate({"extra": e}) for e in extras):
                 pendentes.append(dependencia)
     return versoes
 

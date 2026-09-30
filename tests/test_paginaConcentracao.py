@@ -51,9 +51,10 @@ def lotes():
     })
 
 
-def test_baseAgrupaAreaPorProprietarioNormalizado(lotes):
+def test_semPseudonimoAgrupaPeloNomeNormalizado(lotes):
+    # Compatibilidade com miniserver anterior à 1.2.0, que não envia id_proprietario.
     base = pc.prepararBaseGini(lotes)
-    linha = base[(base["nome_municipio"] == "fortaleza") & (base["nome_proprietario_normalizado"] == "a")]
+    linha = base[(base["nome_municipio"] == "fortaleza") & (base["chave_proprietario"] == "a")]
     assert linha["area"].iloc[0] == pytest.approx(15.0)
     assert linha["cnt_imoveis"].iloc[0] == 5
 
@@ -122,3 +123,23 @@ def test_mapaNaoExpoeNomesDeProprietarios(lotes):
     html = pc.criarMapaGini(geo).get_root().render()
     assert "Maria Joaquina" not in html and "maria joaquina" not in html
     assert "fortaleza" in html
+
+
+def test_comPseudonimoAgrupaPeloIdentificadorEIgnoraONome(lotes):
+    protegido = "Pessoa física (protegido pela LGPD)"
+    comId = lotes.assign(
+        nome_proprietario=protegido,
+        id_proprietario=["p1", "p1", "p2", "p3", "p4", "p5", "p6", "p7"],
+    )
+    tabela = pc.calcularGiniPorMunicipio(pc.prepararBaseGini(comId)).set_index("nome_municipio")
+    assert tabela.loc["fortaleza", "cnt_proprietarios"] == 4
+    assert tabela.loc["sobral", "cnt_proprietarios"] == 3
+
+
+def test_giniEstadualUsaOPseudonimoEntreMunicipios():
+    base = pc.prepararBaseGini(pd.DataFrame({
+        "nome_municipio": ["a", "b"], "nome_municipio_original": ["A", "B"], "regiao_administrativa": ["R", "R"],
+        "nome_proprietario": ["Pessoa física (protegido pela LGPD)"] * 2, "id_proprietario": ["mesmo", "mesmo"],
+        "area": [10.0, 30.0],
+    }))
+    assert pc.calcularGiniEstadual(base) == pytest.approx(0.0)

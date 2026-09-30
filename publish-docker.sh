@@ -18,7 +18,11 @@ cd "$(dirname "$0")"
 # A imagem não leva mais o .streamlit/secrets.toml. Sem JWT_SECRET no ambiente
 # do container, o dashboard não consegue autenticar no miniserver.
 echo "A imagem não inclui o secrets.toml: o container precisa da variável JWT_SECRET."
-read -r -p "O serviço dfundce no Portainer já tem JWT_SECRET definido (sem aspas)? [s/N] " resposta
+# Para uso não interativo: JWT_SECRET_CONFIGURADO=s ./publish-docker.sh <versao>
+resposta="${JWT_SECRET_CONFIGURADO:-}"
+if [ -z "$resposta" ]; then
+  read -r -p "O serviço dfundce no Portainer já tem JWT_SECRET definido (sem aspas)? [s/N] " resposta
+fi
 if [[ ! "$resposta" =~ ^[sS]$ ]]; then
   echo "Defina JWT_SECRET no Portainer antes de publicar. Veja doc/rotacao_segredos.md." >&2
   exit 1

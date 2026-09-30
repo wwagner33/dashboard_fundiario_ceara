@@ -15,7 +15,19 @@ os.environ.setdefault("JWT_SECRET", "segredo-de-teste-com-mais-de-32-bytes-01234
 import pytest  # noqa: E402
 import streamlit as st  # noqa: E402
 
-from modules import apiCliente, config  # noqa: E402
+from modules import apiCliente, config, repositorio  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _versaoDosDados(request, monkeypatch):
+    """Desliga a consulta a /versao_dados, exceto com o miniserver simulado ou o marcador comVersao.
+
+    Assim os testes que registram só os endpoints que usam não precisam
+    registrar também /versao_dados.
+    """
+    monkeypatch.setattr(repositorio, "_versaoConhecida", None)
+    if "miniserverSimulado" not in request.fixturenames and not request.node.get_closest_marker("comVersao"):
+        monkeypatch.setattr(repositorio, "carregarVersaoDados", lambda: "")
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +63,8 @@ LOTE_EXEMPLO = {
     "categoria": "Pequena Propriedade",
     "nome_municipio": "fortaleza",
     "modulo_fiscal": 5.0,
-    "nome_proprietario": "Fulano de Tal",
+    "nome_proprietario": "Pessoa física (protegido pela LGPD)",
+    "id_proprietario": "0123456789abcdef0123456789abcdef",
 }
 
 
@@ -124,6 +137,8 @@ def criarResponderApi(lotes=None):
     def responder(request, context):
         caminho = request.path.rstrip("/")
         context.status_code = 200
+        if caminho == "/versao_dados":
+            return {"versao": "2026-09-30 10:00:00", "cargas": []}
         if caminho == "/regioes":
             return {"regioes": ["Regiao Teste"]}
         if caminho == "/municipios":
