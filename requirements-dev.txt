@@ -1,4 +1,9 @@
-# Dependências apenas para testes automatizados (não instalar em produção).
+# Gerado por scripts/fixarDependencias.py a partir de requirements-dev.in. Não edite à mão.
+# Dependências só para testes e lint (não instalar em produção).
 -r requirements.txt
-pytest
-requests-mock
+iniconfig==2.3.0
+pluggy==1.6.0
+pygments==2.20.0
+pytest==9.1.1
+requests-mock==1.12.1
+ruff==0.16.9

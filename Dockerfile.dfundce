@@ -1,43 +1,41 @@
-# Dcokerfile do terra_ce
+# Dockerfile do dashboard_fundiario_ceara (Terra.Ce)
 
-FROM python:3.13-slim-bullseye
+FROM python:3.13.11-slim-trixie
 LABEL maintainer="Wellington Wagner F. Sarmento <wwagner@virtual.ufc.br>" \
-      description="Dockerfile do Terra.Ce"
+      description="Dashboard fundiário do Ceará (Terra.Ce)"
 
 WORKDIR /terra_ce
 
-# Variáveis de ambiente (configurações Python e timezone)
+# As configurações de produção do Streamlit vêm por variável de ambiente, para
+# o config.toml continuar prático no desenvolvimento (runOnSave etc.).
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_ROOT_USER_ACTION=ignore \
     TZ=America/Fortaleza \
-    CPLUS_INCLUDE_PATH=/usr/include/gdal \
-    C_INCLUDE_PATH=/usr/include/gdal
+    STREAMLIT_SERVER_PORT=8501 \
+    STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
+    STREAMLIT_SERVER_RUN_ON_SAVE=false \
+    STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
 
-# Instalação de dependências do sistema e Python, seguida de limpeza
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gdal-bin \
-    libgdal-dev \
-    libgeos-dev \
-    libproj-dev \
-    python3-gdal \
-    tzdata && \
-    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
-    apt-get purge -y --auto-remove build-essential libgdal-dev libgeos-dev libproj-dev && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# geopandas, shapely e pyproj trazem GDAL, GEOS e PROJ dentro das próprias
+# wheels; o sistema só precisa do fuso horário.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir gunicorn
+RUN pip install -r requirements.txt
 
-# Copiando o código da aplicação 
-COPY . .
-
+RUN useradd --create-home --uid 10001 terra
+COPY --chown=terra:terra . .
+USER terra
 
 EXPOSE 8501
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/paineis/_stcore/health', timeout=4)"
 
-#ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501"]
+ENTRYPOINT ["streamlit", "run", "app.py"]

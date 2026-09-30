@@ -1,0 +1,35 @@
+# Lint e testes do dashboard a cada push e pull request.
+name: Testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      # Segredo só de teste; o miniserver é simulado pelo requests_mock.
+      JWT_SECRET: segredo-de-ci-com-mais-de-32-bytes-0123456789
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Instalar dependências
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Testes
+        run: python -m pytest -q

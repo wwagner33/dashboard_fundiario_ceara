@@ -58,6 +58,12 @@ services:
     environment:
       - TZ=America/Fortaleza
       - DATA_SERVICE_URL=http://tgdmserver:8000 # http://tgdmserver.virtual.ufc.br:8000
+      # Segredo compartilhado com o miniserver para assinar os tokens JWT.
+      # A imagem não traz o secrets.toml; sem esta variável o dashboard não autentica.
+      - JWT_SECRET=${JWT_SECRET}
+      # API key dos basemaps raster da CARTO. Se ficar vazia, o dashboard
+      # usa OpenStreetMap como camada base em vez de exibir a marca d'agua.
+      - CARTO_API_KEY=${CARTO_API_KEY}
     ports:
       - "8501:8501"
     networks:

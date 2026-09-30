@@ -1,27 +1,40 @@
-"""Fixtures compartilhadas para a suíte de testes do dashboard_fundiario_ceara.
+"""Fixtures compartilhadas da suíte de testes do dashboard_fundiario_ceara.
 
-Importante:
-- Os testes aqui NUNCA devem depender de um terraGeoDataMiniServer real rodando.
-  Toda comunicação HTTP é interceptada via `requests_mock`.
-- Vários módulos (data_loader, mapa_assentamento, mapa_escolas, mapa_reservatorios)
-  leem `st.secrets["JWT_SECRET"]` no nível de módulo. Isso funciona porque os
-  testes rodam com cwd = dashboard_fundiario_ceara/, onde existe
-  .streamlit/secrets.toml com um valor de teste.
-- `st.cache_data`/`st.cache_resource` mantêm cache global entre chamadas de
-  função (não por teste), então limpamos os caches do Streamlit antes de cada
-  teste para evitar contaminação entre casos de teste.
+- Nenhum teste depende de um terraGeoDataMiniServer real: o HTTP é
+  interceptado com ``requests_mock``.
+- ``JWT_SECRET`` vem de uma variável de ambiente de teste definida aqui, antes
+  da importação dos módulos, então a suíte não precisa do ``secrets.toml``.
+- Os caches do Streamlit e o token JWT em memória são limpos antes e depois de
+  cada teste, para que um caso não contamine o outro.
 """
+import os
 import re
 
-import pytest
-import streamlit as st
+os.environ.setdefault("JWT_SECRET", "segredo-de-teste-com-mais-de-32-bytes-0123456789")
+
+import pytest  # noqa: E402
+import streamlit as st  # noqa: E402
+
+from modules import apiCliente, config, repositorio  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
-def _clear_streamlit_state():
-    """Evita que cache/sessão de um teste vaze para o próximo."""
+def _versaoDosDados(request, monkeypatch):
+    """Desliga a consulta a /versao_dados, exceto com o miniserver simulado ou o marcador comVersao.
+
+    Assim os testes que registram só os endpoints que usam não precisam
+    registrar também /versao_dados.
+    """
+    monkeypatch.setattr(repositorio, "_versaoConhecida", None)
+    if "miniserverSimulado" not in request.fixturenames and not request.node.get_closest_marker("comVersao"):
+        monkeypatch.setattr(repositorio, "carregarVersaoDados", lambda: "")
+
+
+@pytest.fixture(autouse=True)
+def _limparEstadoStreamlit():
     st.cache_data.clear()
     st.cache_resource.clear()
+    apiCliente.descartarToken()
     try:
         st.session_state.clear()
     except Exception:
@@ -29,159 +42,133 @@ def _clear_streamlit_state():
     yield
     st.cache_data.clear()
     st.cache_resource.clear()
+    apiCliente.descartarToken()
 
 
 # ---------------------------------------------------------------------------
-# Dados de exemplo usados pelo "servidor" (miniserver) simulado
+# Dados de exemplo servidos pelo miniserver simulado
 # ---------------------------------------------------------------------------
 
-SAMPLE_LOTE = {
+LOTE_EXEMPLO = {
     "imovel": "Fazenda Teste",
     "data_criacao_lote": "2020-01-01",
     "numero_incra": "123.456",
     "numero_lote": "1",
+    "numero_titulo": "10",
     "area": 10.0,
     "situacao_juridica": "Regular",
     "regiao_administrativa": "Regiao Teste",
     "nome_municipio_original": "Fortaleza",
     "nome_distrito": "Centro",
-    "ponto_de_referencia": "",
     "categoria": "Pequena Propriedade",
-    "geometry": None,
     "nome_municipio": "fortaleza",
     "modulo_fiscal": 5.0,
-    "lote_id": "1",
-    "nome_proprietario": "Fulano de Tal",
+    "nome_proprietario": "Pessoa física (protegido pela LGPD)",
+    "id_proprietario": "0123456789abcdef0123456789abcdef",
 }
 
 
-def make_lote(**overrides):
-    lote = dict(SAMPLE_LOTE)
-    lote.update(overrides)
+def criarLote(**alteracoes):
+    lote = dict(LOTE_EXEMPLO)
+    lote.update(alteracoes)
     return lote
 
 
-SAMPLE_MUNI_GEOJSON = {
-    "type": "FeatureCollection",
-    "features": [
-        {
-            "type": "Feature",
-            "properties": {"nome_municipio": "fortaleza"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[-38.6, -3.8], [-38.5, -3.8], [-38.5, -3.7], [-38.6, -3.7], [-38.6, -3.8]]],
-            },
-        }
-    ],
+QUADRADO = {
+    "type": "Polygon",
+    "coordinates": [[[-38.6, -3.8], [-38.5, -3.8], [-38.5, -3.7], [-38.6, -3.7], [-38.6, -3.8]]],
 }
 
-def _assentamento_feature(tipo, cd_sipra):
+GEOJSON_MUNICIPIOS = {
+    "type": "FeatureCollection",
+    "features": [{"type": "Feature", "properties": {"nome_municipio": "fortaleza"}, "geometry": QUADRADO}],
+}
+
+
+def feicaoAssentamento(tipo, cdSipra, nome="Assentamento Teste"):
     return {
         "type": "Feature",
         "properties": {
-            "cd_sipra": cd_sipra,
+            "cd_sipra": cdSipra,
             "tipo_assentamento": tipo,
-            "nome_assentamento": "Assentamento Teste",
+            "nome_assentamento": nome,
+            "nome_municipio": "fortaleza",
             "nome_municipio_original": "Fortaleza",
             "num_familias": 12,
             "forma_obtecao": "Desapropriação",
             "area": 100.5,
             "perimetro": 10.2,
         },
-        "geometry": {
-            "type": "Polygon",
-            "coordinates": [[[-38.6, -3.8], [-38.5, -3.8], [-38.5, -3.7], [-38.6, -3.7], [-38.6, -3.8]]],
-        },
+        "geometry": QUADRADO,
     }
 
 
-# Inclui os dois tipos (estadual e federal): ver test_mapa_reservatorios.py::
-# test_adicionar_camadas_assentamentos_quebra_com_subconjunto_vazio -- quando
-# apenas um tipo está presente, o folium.GeoJsonTooltip do outro grupo (vazio)
-# lança AssertionError ao renderizar. Manter os dois tipos aqui evita que esse
-# bug de produção derrube os smoke tests de outras páginas.
-SAMPLE_ASSENTAMENTOS_GEOJSON = {
+GEOJSON_ASSENTAMENTOS = {
     "type": "FeatureCollection",
-    "features": [
-        _assentamento_feature("estadual", "CE0001"),
-        _assentamento_feature("federal", "CE0002"),
-    ],
+    "features": [feicaoAssentamento("estadual", "CE0001"), feicaoAssentamento("federal", "CE0002")],
 }
 
-SAMPLE_RESERVATORIOS_GEOJSON = {
+GEOJSON_RESERVATORIOS = {
     "type": "FeatureCollection",
     "features": [
         {
             "type": "Feature",
             "properties": {
-                "id_sagreh": "1",
-                "nome": "Açude Teste",
-                "proprietario": "Estado",
-                "gerencia": "COGERH",
-                "reg_hidrog": "Regiao 1",
-                "nome_municipio_original": "Fortaleza",
-                "ano_constr": "1990",
-                "ri": "Rio Teste",
-                "o_barrad": "Sim",
-                "area_ha": 50.0,
-                "capacid_m3": 1000.0,
+                "id_sagreh": "1", "nome": "Açude Teste", "proprietario": "Estado", "gerencia": "COGERH",
+                "reg_hidrog": "Regiao 1", "nome_municipio": "fortaleza", "nome_municipio_original": "Fortaleza",
+                "ano_constr": "1990", "ri": "Rio Teste", "o_barrad": "Sim", "area_ha": 50.0, "capacid_m3": 1000.0,
             },
-            "geometry": {"type": "Point", "coordinates": [-38.55, -3.75]},
+            "geometry": QUADRADO,
         }
     ],
 }
 
 
-def api_responder_factory():
-    """Cria uma função callback do requests_mock que simula os principais
-    endpoints do terraGeoDataMiniServer, independente do prefixo (com ou sem
-    "/api") usado por cada módulo do dashboard."""
+def geojsonLotes(lotes):
+    return {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "properties": dict(lote), "geometry": QUADRADO} for lote in lotes
+    ]}
 
-    def _responder(request, context):
-        path = request.path.rstrip("/")
-        if path.startswith("/api"):
-            path = path[len("/api"):]
 
+def criarResponderApi(lotes=None):
+    """Callback do requests_mock que simula os endpoints do miniserver."""
+    lotes = lotes if lotes is not None else [LOTE_EXEMPLO]
+
+    def responder(request, context):
+        caminho = request.path.rstrip("/")
         context.status_code = 200
-
-        if path == "/regioes":
+        if caminho == "/versao_dados":
+            return {"versao": "2026-09-30 10:00:00", "cargas": []}
+        if caminho == "/regioes":
             return {"regioes": ["Regiao Teste"]}
-        if path == "/dados_fundiarios":
-            return [SAMPLE_LOTE]
-        if path == "/version":
-            return {"data_version": "test-1.0.0"}
-        if path == "/municipios_todos":
+        if caminho == "/municipios":
             return {"municipios": ["fortaleza"]}
-        if path == "/geojson_muni":
-            return SAMPLE_MUNI_GEOJSON
-        if path == "/municipios":
+        if caminho == "/dados_fundiarios":
+            return lotes
+        if caminho == "/geojson_muni":
+            return GEOJSON_MUNICIPIOS
+        if caminho == "/geojson":
+            return geojsonLotes(lotes)
+        if caminho == "/geojson_assentamentos":
+            return GEOJSON_ASSENTAMENTOS
+        if caminho == "/assentamentos_municipios":
             return {"municipios": ["fortaleza"]}
-        if path == "/geojson":
-            return SAMPLE_MUNI_GEOJSON
-        if path == "/geojson_assentamentos":
-            return SAMPLE_ASSENTAMENTOS_GEOJSON
-        if path == "/geojson_reservatorios":
-            return SAMPLE_RESERVATORIOS_GEOJSON
-        if path == "/assentamentos_municipios":
+        if caminho == "/geojson_reservatorios":
+            return GEOJSON_RESERVATORIOS
+        if caminho == "/reservatorios_municipios":
             return {"municipios": ["fortaleza"]}
-        if path == "/reservatorios_municipios":
-            return {"municipios": ["fortaleza"]}
-
         context.status_code = 404
-        return {}
+        return {"detail": "não encontrado"}
 
-    return _responder
+    return responder
+
+
+def url(endpoint):
+    return f"{config.DATA_SERVICE_URL}/{endpoint}"
 
 
 @pytest.fixture
-def mocked_miniserver(requests_mock):
-    """Intercepta toda chamada HTTP para localhost:8000 (com ou sem /api) e
-    devolve respostas canônicas simulando o terraGeoDataMiniServer.
-
-    Uso: passe este fixture para qualquer teste que precise que
-    `load_csv_data`, `load_municipios`, `render_view_*`, etc. funcionem sem
-    bater num backend real.
-    """
-    responder = api_responder_factory()
-    requests_mock.get(re.compile(r"^http://localhost:8000"), json=responder)
+def miniserverSimulado(requests_mock):
+    """Intercepta toda chamada ao miniserver e devolve as respostas de exemplo."""
+    requests_mock.get(re.compile("^" + re.escape(config.DATA_SERVICE_URL)), json=criarResponderApi())
     return requests_mock

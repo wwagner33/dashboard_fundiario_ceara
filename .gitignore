@@ -186,3 +186,5 @@ out/
  #Remove pastas de testes e outras pastas de uso local
  .idea/
  .claude/
+# Arquivos sem uso aguardando revisao local (nao versionar)
+arquivos-sem-uso/

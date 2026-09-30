@@ -15,6 +15,19 @@ VERSION="${1:?Uso: ./publish-docker.sh <versao, ex: 1.2.0>}"
 
 cd "$(dirname "$0")"
 
+# A imagem não leva mais o .streamlit/secrets.toml. Sem JWT_SECRET no ambiente
+# do container, o dashboard não consegue autenticar no miniserver.
+echo "A imagem não inclui o secrets.toml: o container precisa da variável JWT_SECRET."
+# Para uso não interativo: JWT_SECRET_CONFIGURADO=s ./publish-docker.sh <versao>
+resposta="${JWT_SECRET_CONFIGURADO:-}"
+if [ -z "$resposta" ]; then
+  read -r -p "O serviço dfundce no Portainer já tem JWT_SECRET definido (sem aspas)? [s/N] " resposta
+fi
+if [[ ! "$resposta" =~ ^[sS]$ ]]; then
+  echo "Defina JWT_SECRET no Portainer antes de publicar. Veja doc/rotacao_segredos.md." >&2
+  exit 1
+fi
+
 if ! podman login --get-login docker.io >/dev/null 2>&1; then
   echo "Não logado no Docker Hub. Rode primeiro:" >&2
   echo "  podman login docker.io -u wellingtonwfsarmento" >&2
@@ -22,7 +35,7 @@ if ! podman login --get-login docker.io >/dev/null 2>&1; then
 fi
 
 echo "==> Build: $IMAGE:$VERSION"
-podman build -f Dockerfile.dfundce -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
+podman build --format docker -f Dockerfile.dfundce -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
 
 echo "==> Push: $IMAGE:$VERSION"
 podman push "$IMAGE:$VERSION"
